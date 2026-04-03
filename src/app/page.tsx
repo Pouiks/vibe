@@ -1,65 +1,112 @@
-import Image from "next/image";
+"use client";
+import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { useVibeStore } from '@/core/store/useVibeStore';
+import { supabase } from '@/core/supabase/client';
+import { MapPin, ScanLine, MessageCircle, Crown, Zap } from 'lucide-react';
+
+interface Venue {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+}
+
+const CATEGORY_ICONS: Record<string, string> = {
+  sport: '🏀',
+  cafe: '☕',
+  bar: '🍻',
+  other: '📍',
+};
 
 export default function Home() {
+  const user = useVibeStore((state) => state.user);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.from('venues')
+      .select('id, slug, name, category')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setVenues(data);
+        setLoading(false);
+      });
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="min-h-[100dvh] flex flex-col bg-vibe-dark relative">
+      
+      {/* Decorative blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-brand-600 rounded-full mix-blend-screen filter blur-[120px] opacity-20 pointer-events-none"></div>
+
+      {/* Header Profile */}
+      <header className="p-5 flex items-center justify-between sticky top-0 z-20 bg-vibe-dark/80 backdrop-blur-md border-b border-vibe-border">
+         <h1 className="font-extrabold text-2xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
+           VIBE
+         </h1>
+         {user && (
+           <Link href="/profile" className="flex items-center justify-center w-10 h-10 rounded-full bg-brand-600 border border-brand-500/50 shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-transform hover:scale-105 active:scale-95 text-white font-bold tracking-widest text-sm relative">
+              {user.username.substring(0, 2).toUpperCase()}
+              {user.isPremium && <Crown className="absolute -top-1 -right-2 w-4 h-4 text-vibe-accent drop-shadow-md" />}
+           </Link>
+         )}
+      </header>
+
+      <div className="flex-1 p-4 pb-20">
+         {/* Bouton Principal Scanner */}
+         <div className="glass p-5 rounded-3xl w-full flex flex-col gap-5 mb-8 relative overflow-hidden text-center items-center">
+            <div className="absolute bottom-[-20%] right-[-10%] w-32 h-32 bg-vibe-accent rounded-full mix-blend-screen filter blur-[50px] opacity-20"></div>
+            
+            <div className="bg-brand-500/20 p-4 rounded-full">
+              <ScanLine className="w-8 h-8 text-brand-400" />
+            </div>
+            
+            <div>
+              <h2 className="text-lg font-bold text-white mb-1">Où êtes-vous ?</h2>
+              <p className="text-xs text-slate-400 max-w-[250px] mx-auto leading-relaxed">Scannez le QR code d'un lieu pour discuter avec les personnes présentes et créer des events.</p>
+            </div>
+            
+            <button className="w-full bg-white text-vibe-dark font-bold py-3.5 px-4 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2">
+              <ScanLine className="w-4 h-4" />
+              Ouvrir la caméra
+            </button>
+         </div>
+
+         {/* Liste dynamique des lieux */}
+         <div>
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-3 ml-2 flex items-center gap-2">
+              <MessageCircle className="w-3 h-3" /> Tous les lieux
+            </h2>
+            
+            <div className="flex flex-col gap-2">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : venues.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-sm">Aucun lieu enregistré.</div>
+              ) : (
+                venues.map(v => (
+                  <Link key={v.id} href={`/l/${v.slug}`} className="glass p-3.5 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform">
+                    <div className="flex items-center gap-3">
+                       <div className="bg-vibe-dark p-3 rounded-2xl border border-vibe-border relative flex items-center justify-center">
+                         <span className="text-lg">{CATEGORY_ICONS[v.category] || '📍'}</span>
+                       </div>
+                       <div className="flex flex-col">
+                          <h3 className="font-bold text-[14px] text-slate-200">{v.name}</h3>
+                          <p className="text-[11px] text-slate-500 capitalize">{v.category}</p>
+                       </div>
+                    </div>
+                    <div className="flex-shrink-0">
+                       <Zap className="w-4 h-4 text-brand-500" />
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+         </div>
+      </div>
+    </main>
   );
 }

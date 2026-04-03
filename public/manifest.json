@@ -1,0 +1,17 @@
+{
+  "name": "VIBE Social PWA",
+  "short_name": "VIBE",
+  "description": "La PWA sociale de proximité pour discuter et interagir dans la vraie vie.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f111a",
+  "theme_color": "#0f111a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/file.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
