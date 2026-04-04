@@ -39,9 +39,31 @@ export default function ProfilePage() {
     formData.age !== (user?.age || '') ||
     formData.gender !== (user?.gender || '');
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+
+    // Convert string to null or number for database
+    const ageValue = formData.age ? parseInt(formData.age, 10) : null;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        first_name: formData.firstName,
+        age: ageValue,
+        gender: formData.gender
+      })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error("Erreur lors de la sauvegarde :", error);
+      alert("Erreur de connexion. Impossible de sauvegarder le profil.");
+      return;
+    }
+
+    // Update local state to reflect UI changes immediately only if successful
     updateUserProfile(formData);
+    
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 5000); // Reste vert pendant 5s
   };
