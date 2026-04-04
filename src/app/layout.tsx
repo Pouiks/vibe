@@ -14,8 +14,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "VIBE | Connect in the real world",
-  description: "La PWA sociale de proximité. Scannez un QR Code, discutez et créez des événements éphémères autour de vous.",
+  title: "VIBESPOT | Connect in the real world",
+  description: "L'App'sociale de proximité. Scannez un QR Code, discutez et créez des événements éphémères autour de vous.",
   manifest: "/manifest.json",
 };
 
