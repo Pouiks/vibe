@@ -1,12 +1,13 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useVibeStore } from '@/core/store/useVibeStore';
+import { supabase } from '@/core/supabase/client';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuth } from '@/modules/auth/useAuth';
-import { Crown, MapPin, Map as MapIcon, ArrowLeft, Save, BellOff, LogOut } from 'lucide-react';
+import { Crown, MapPin, Map as MapIcon, ArrowLeft, Save, BellOff, LogOut, Check } from 'lucide-react';
 
 export default function ProfilePage() {
   const user = useVibeStore((state) => state.user);
@@ -22,12 +23,27 @@ export default function ProfilePage() {
      gender: user?.gender || ''
   });
 
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setEmail(user.email);
+    });
+  }, []);
+
   const handleChange = (e: any) => setFormData({...formData, [e.target.name]: e.target.value});
+
+  const [isSaved, setIsSaved] = useState(false);
+
+  const hasChanges = 
+    formData.firstName !== (user?.firstName || '') ||
+    formData.age !== (user?.age || '') ||
+    formData.gender !== (user?.gender || '');
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateUserProfile(formData);
-    alert("Profil complété avec succès !");
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 5000); // Reste vert pendant 5s
   };
 
   if (!user) {
@@ -55,13 +71,20 @@ export default function ProfilePage() {
            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 mb-1">
              {user.username}
            </h1>
-           <p className="text-sm font-medium text-brand-500">
+           <p className="text-sm font-medium text-brand-500 mb-1">
              {user.isPremium ? 'Membre Premium' : 'Membre Standard'}
            </p>
+           {email && (
+             <p className="text-xs text-slate-500 bg-vibe-dark/50 px-3 py-1 rounded-full mt-2">
+               Connecté en tant que <span className="text-slate-300">{email}</span>
+             </p>
+           )}
         </div>
 
         {/* Informations Personnelles */}
-        <div className="glass p-5 rounded-3xl mb-8">
+        <div className={`glass p-5 rounded-3xl mb-8 transition-all duration-1000 border ${
+            isSaved ? 'border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'border-transparent'
+        }`}>
            <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-4 ml-1">Mes Informations</h2>
            <form onSubmit={handleSave} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
@@ -83,8 +106,26 @@ export default function ProfilePage() {
                    </select>
                  </div>
               </div>
-              <button type="submit" className="mt-2 w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-500 active:scale-95 transition-all text-white py-2.5 rounded-xl text-sm font-medium shadow-[0_0_10px_rgba(99,102,241,0.3)]">
-                <Save className="w-4 h-4" /> Sauvegarder
+              <button 
+                type="submit" 
+                disabled={!hasChanges && !isSaved}
+                className={`mt-2 w-full flex items-center justify-center gap-2 active:scale-95 transition-all duration-1000 text-white py-2.5 rounded-xl text-sm font-medium ${
+                    isSaved 
+                        ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' 
+                        : !hasChanges
+                        ? 'bg-brand-600/50 text-slate-400 cursor-not-allowed'
+                        : 'bg-brand-600 hover:bg-brand-500 shadow-[0_0_10px_rgba(99,102,241,0.3)]'
+                }`}
+              >
+                {isSaved ? (
+                  <>
+                    <Check className="w-4 h-4" /> Sauvegardé
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" /> Sauvegarder
+                  </>
+                )}
               </button>
            </form>
            
