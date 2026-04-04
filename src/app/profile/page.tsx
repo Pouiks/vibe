@@ -1,15 +1,19 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { Crown, MapPin, Map as MapIcon, ArrowLeft, Save, BellOff } from 'lucide-react';
+import { useAuth } from '@/modules/auth/useAuth';
+import { Crown, MapPin, Map as MapIcon, ArrowLeft, Save, BellOff, LogOut } from 'lucide-react';
 
 export default function ProfilePage() {
   const user = useVibeStore((state) => state.user);
   const updateUserProfile = useVibeStore((state) => state.updateUserProfile);
   const { unsubscribeFromPush, isSubscribed } = usePushNotifications();
+  const { signOut } = useAuth();
+  const router = useRouter();
   useSwipeBack();
 
   const [formData, setFormData] = useState({
@@ -23,7 +27,7 @@ export default function ProfilePage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateUserProfile(formData);
-    alert("Profil complété avec succès ! (Mode Local)");
+    alert("Profil complété avec succès !");
   };
 
   if (!user) {
@@ -84,7 +88,7 @@ export default function ProfilePage() {
               </button>
            </form>
            
-           <div className="mt-6 pt-6 border-t border-vibe-border">
+           <div className="mt-6 pt-6 border-t border-vibe-border flex flex-col gap-3">
               <button 
                 onClick={async () => {
                    const success = await unsubscribeFromPush();
@@ -95,42 +99,20 @@ export default function ProfilePage() {
               >
                 <BellOff className="w-4 h-4" /> Désactiver les notifications
               </button>
+              <button 
+                onClick={async () => {
+                   await signOut();
+                   router.replace('/login');
+                }} 
+                className="w-full flex items-center justify-center gap-2 bg-slate-500/10 hover:bg-slate-500/20 text-slate-400 py-2.5 rounded-xl text-sm font-medium transition-colors"
+              >
+                <LogOut className="w-4 h-4" /> Se déconnecter
+              </button>
            </div>
         </div>
 
-        <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3 ml-2 flex items-center gap-2">
-           <MapIcon className="w-4 h-4" />
-           Lieux récents (POC)
-        </h2>
-        
-        <div className="flex flex-col gap-3">
-          <Link href="/l/le-bureau-paris" className="glass p-4 rounded-2xl flex items-center justify-between group hover:bg-brand-500/10 transition-colors">
-            <div className="flex items-center gap-3">
-               <div className="bg-vibe-dark p-2 rounded-xl">
-                 <MapPin className="w-5 h-5 text-slate-300" />
-               </div>
-               <div>
-                  <h3 className="font-semibold text-sm">Le Bureau Paris</h3>
-                  <p className="text-xs text-slate-400">Café • Paris</p>
-               </div>
-            </div>
-          </Link>
-
-          <Link href="/l/darwin-bordeaux" className="glass p-4 rounded-2xl flex items-center justify-between group hover:bg-brand-500/10 transition-colors">
-            <div className="flex items-center gap-3">
-               <div className="bg-vibe-dark p-2 rounded-xl">
-                 <MapPin className="w-5 h-5 text-slate-300" />
-               </div>
-               <div>
-                  <h3 className="font-semibold text-sm">Darwin Ecosystème</h3>
-                  <p className="text-xs text-slate-400">Autre • Bordeaux</p>
-               </div>
-            </div>
-          </Link>
-        </div>
-        
         <div className="mt-12 text-center text-xs text-slate-500">
-          VIBE PWA POC - Build 2026
+          VibeSpot PWA - Build 2026
         </div>
       </div>
     </div>

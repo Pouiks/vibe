@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/core/supabase/client';
 import { useVibeStore } from '@/core/store/useVibeStore';
 
@@ -10,6 +10,7 @@ export interface ChatMessage {
   content: string;
   created_at: string;
   isOptimistic?: boolean;
+  isOnSite?: boolean;
   reactions: { type: string; userId: string }[];
 }
 
@@ -18,33 +19,43 @@ export function useRealtimeChat(venueId: string) {
   const writePermission = useVibeStore((state) => state.writePermission);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const channelRef = useRef<any>(null);
 
   // Fetch initial messages
   useEffect(() => {
-    if (!venueId) return;
+    if (!venueId || !venueId.includes('-')) return;
     
     let isMounted = true;
     
     const fetchMessages = async () => {
-      const { data, error } = await supabase
+      // 1. Fetch messages (24h retention)
+      const { data: messagesData, error } = await supabase
         .from('messages')
         .select(`
-          id, content, created_at, user_id,
-          profiles:user_id(username),
-          message_reactions(reaction_type, user_id)
+          id, content, created_at, user_id, is_on_site,
+          profiles:user_id(username)
         `)
         .eq('venue_id', venueId)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: true })
-        .limit(50);
+        .limit(100);
         
-      if (data && isMounted) {
-        setMessages(data.map((m: any) => ({
+      if (messagesData && isMounted) {
+        // 2. Fetch reactions separately to avoid relation cache errors
+        const messageIds = messagesData.map((m: any) => m.id);
+        const { data: reactionsData } = messageIds.length > 0 
+           ? await supabase.from('message_reactions').select('*').in('message_id', messageIds)
+           : { data: [] };
+
+        setMessages(messagesData.map((m: any) => ({
           id: m.id,
           content: m.content,
           created_at: m.created_at,
           user_id: m.user_id,
           username: m.profiles?.username || 'Utilisateur Anonyme',
-          reactions: m.message_reactions?.map((r: any) => ({ type: r.reaction_type, userId: r.user_id })) || []
+          isOnSite: !!m.is_on_site,
+          reactions: reactionsData?.filter(r => r.message_id === m.id).map(r => ({ type: r.reaction_type, userId: r.user_id })) || []
         })));
       }
       if (isMounted) setLoading(false);
@@ -54,7 +65,22 @@ export function useRealtimeChat(venueId: string) {
 
     // Subscribe to realtime
     const channel = supabase
-      .channel(`public:messages:venue_id=eq.${venueId}`)
+      .channel(`public:messages:venue_id=eq.${venueId}`, {
+        config: { presence: { key: user?.id || `anon-${Math.random()}` } }
+      });
+      
+    channelRef.current = channel;
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        let count = 0;
+        for (const id in state) { 
+           const tabs = state[id] as any[];
+           if (tabs.some(t => t.is_present)) count++;
+        }
+        if (isMounted) setOnlineCount(count);
+      })
       .on(
         'postgres_changes',
         {
@@ -86,6 +112,7 @@ export function useRealtimeChat(venueId: string) {
               content: newMessage.content,
               created_at: newMessage.created_at,
               username,
+              isOnSite: !!newMessage.is_on_site,
               reactions: []
             }];
           });
@@ -122,16 +149,27 @@ export function useRealtimeChat(venueId: string) {
           });
         }
       )
-      .subscribe();
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ is_present: useVibeStore.getState().writePermission, online_at: new Date().toISOString() });
+        }
+      });
 
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
-  }, [venueId]);
+  }, [venueId, user?.id]);
+
+  useEffect(() => {
+     if (channelRef.current && channelRef.current.state === 'joined') {
+        channelRef.current.track({ is_present: writePermission, online_at: new Date().toISOString() });
+     }
+  }, [writePermission]);
 
   const sendMessage = useCallback(async (content: string) => {
-    if (!writePermission || !user) return false;
+    if (!user) return false;
     if (!content.trim()) return false;
 
     // Optimistic UI
@@ -143,6 +181,7 @@ export function useRealtimeChat(venueId: string) {
       content,
       created_at: new Date().toISOString(),
       isOptimistic: true,
+      isOnSite: writePermission,
       reactions: []
     };
 
@@ -154,6 +193,7 @@ export function useRealtimeChat(venueId: string) {
       venue_id: venueId,
       user_id: user.id,
       content: content,
+      is_on_site: writePermission
     });
 
     if (error) {
@@ -202,5 +242,5 @@ export function useRealtimeChat(venueId: string) {
     });
   }, [user]);
 
-  return { messages, loading, sendMessage, toggleReaction };
+  return { messages, loading, onlineCount, sendMessage, toggleReaction };
 }

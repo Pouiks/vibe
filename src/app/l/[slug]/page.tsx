@@ -1,13 +1,13 @@
 "use client";
-import { useState, useRef, useEffect, MouseEvent } from 'react';
-import { use } from 'react';
+import { use, useEffect, useState, useRef, MouseEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useGeofencing } from '@/modules/venue/useGeofencing';
 import { useRealtimeChat } from '@/modules/chat/useRealtimeChat';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff } from 'lucide-react';
+import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 
@@ -32,10 +32,17 @@ interface Venue {
 export default function VenuePage(props: { params: Promise<{ slug: string }> }) {
   const params = use(props.params); 
   const slug = params.slug;
+  const searchParams = useSearchParams();
+  const isScanned = searchParams?.get('scanned') === 'true';
 
   // Dynamic venue fetch from Supabase
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueLoading, setVenueLoading] = useState(true);
+  const [hasUnlockedArea, setHasUnlockedArea] = useState(false);
+
+  // Stores (must be before useEffects that depend on them)
+  const user = useVibeStore((state) => state.user);
+  const writePermission = useVibeStore((state) => state.writePermission);
 
   useEffect(() => {
     let isMounted = true;
@@ -52,6 +59,25 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
     return () => { isMounted = false };
   }, [slug]);
 
+  // Check unlock status (persisted in Supabase channel_subscriptions)
+  useEffect(() => {
+    if (!venue || !user) return;
+
+    if (isScanned) {
+      // Upsert to avoid duplicate key errors on re-scan
+      supabase.from('channel_subscriptions')
+        .upsert({ venue_id: venue.id, user_id: user.id }, { onConflict: 'user_id,venue_id' })
+        .then(() => setHasUnlockedArea(true));
+    } else {
+      supabase.from('channel_subscriptions')
+        .select('venue_id')
+        .match({ venue_id: venue.id, user_id: user.id })
+        .then((res) => {
+          if (res.data && res.data.length > 0) setHasUnlockedArea(true);
+        });
+    }
+  }, [venue?.id, user?.id, isScanned]);
+
   // Activer le Swipe PWA natif
   useSwipeBack();
 
@@ -63,9 +89,7 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   
   // Stores and Hooks
-  const user = useVibeStore((state) => state.user);
-  const writePermission = useVibeStore((state) => state.writePermission);
-  const { messages, loading: chatLoading, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || slug);
+  const { messages, loading: chatLoading, onlineCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || slug);
   const { distance, error: geoError } = useGeofencing(venue?.lat, venue?.lng);
   const { toggleVenueSubscription } = usePushNotifications();
 
@@ -148,10 +172,11 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
                </h1>
                <div className="flex items-center gap-2 text-xs">
                   {writePermission ? (
-                     <span className="text-emerald-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Connecté (Sur place)</span>
+                     <span className="text-emerald-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sur place</span>
                   ) : (
-                     <span className="text-orange-400 flex items-center gap-1"><Info className="w-2 h-2" /> Mode Spectateur (Trop loin)</span>
+                     <span className="text-orange-400 flex items-center gap-1"><Info className="w-2 h-2" /> Spectateur</span>
                   )}
+                  <span className="text-brand-300">• {onlineCount} {onlineCount > 1 ? 'membres' : 'membre'} présent{onlineCount > 1 ? 's' : ''}*</span>
                </div>
              </div>
            </div>
@@ -219,9 +244,16 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
                     return (
                       <div key={m.id} className={`flex flex-col max-w-[85%] relative ${isMe ? 'self-end items-end' : 'self-start items-start'} ${m.isOptimistic ? 'opacity-70' : ''}`}>
                          {/* Username */}
-                         <span className={`text-[10px] font-medium ml-1 mb-0.5 ${isMe ? 'text-brand-300' : 'text-slate-400'}`}>
-                           {isMe ? 'Vous' : m.username}
-                         </span>
+                         <div className="flex items-center gap-1 mb-0.5 ml-1">
+                           <span className={`text-[10px] font-medium ${isMe ? 'text-brand-300' : 'text-slate-400'}`}>
+                             {isMe ? 'Vous' : m.username}
+                           </span>
+                           {m.isOnSite && (
+                             <span className="text-[8px] font-bold uppercase bg-brand-500/20 text-brand-300 px-1 py-0.5 rounded flex items-center gap-1">
+                               📍
+                             </span>
+                           )}
+                         </div>
                          
                          {/* Reaction Menu */}
                          {activeMenu === m.id && (
@@ -266,9 +298,9 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
                     );
                  })
               )}
-              {(!writePermission && distance && distance > 100) && (
+              {(!hasUnlockedArea) && (
                  <div className="text-center text-xs text-orange-400 border border-orange-500/20 bg-orange-500/10 p-2 rounded-xl mt-4">
-                  Vous êtes à {Math.round(distance)}m. Rapprochez-vous pour discuter.
+                  🔒 Ce chat est réservé à ceux qui ont déjà scanné le terrain.
                  </div>
               )}
               <div ref={bottomRef} className="h-2" />
@@ -288,13 +320,13 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
               type="text" 
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              disabled={!writePermission}
-              placeholder={writePermission ? "Envoyer une vibe..." : "Vous devez être sur place..."}
-              className={`w-full glass pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-500 transition-colors text-sm shadow-[0_4px_20px_rgba(0,0,0,0.3)] ${!writePermission ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!hasUnlockedArea}
+              placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire ici."}
+              className={`w-full glass pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-500 transition-colors text-sm shadow-[0_4px_20px_rgba(0,0,0,0.3)] ${!hasUnlockedArea ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             <button 
               type="submit"
-              disabled={!writePermission || !newMessage.trim()}
+              disabled={!hasUnlockedArea || !newMessage.trim()}
               className="absolute right-2 p-2 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-700 disabled:text-slate-400 text-white rounded-xl transition-all active:scale-90"
             >
                <Send className="w-4 h-4" />
@@ -328,6 +360,7 @@ function formatCountdown(startTime: string) {
 function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: string; venueSlug: string; writePermission: boolean; userId?: string }) {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [participations, setParticipations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Fetch upcoming events
@@ -340,6 +373,15 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
         if (data) setEvents(data);
         setLoading(false);
       });
+
+    if (userId) {
+      supabase.from('event_participants')
+        .select('event_id')
+        .eq('user_id', userId)
+        .then(({ data }) => {
+          if (data) setParticipations(new Set(data.map(d => d.event_id)));
+        });
+    }
 
     // Subscribe to realtime
     const channel = supabase
@@ -360,17 +402,30 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
   }, [venueId]);
 
   const handleJoin = async (eventId: string) => {
+    if (!userId) return;
     // Optimistic update
     setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: ev.current_participants + 1 } : ev));
+    setParticipations(prev => { const n = new Set(prev); n.add(eventId); return n; });
     
-    const { error } = await supabase.rpc('join_event', { event_id: eventId });
-    if (error) {
-      // Simple fallback: just increment via update
-      const ev = events.find(e => e.id === eventId);
-      if (ev) {
-        await supabase.from('events').update({ current_participants: ev.current_participants + 1 }).eq('id', eventId);
-      }
-    }
+    await supabase.from('event_participants').insert({ event_id: eventId, user_id: userId });
+  };
+
+  const handleLeave = async (eventId: string) => {
+    if (!userId) return;
+    // Optimistic update
+    setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: Math.max(0, ev.current_participants - 1) } : ev));
+    setParticipations(prev => { const n = new Set(prev); n.delete(eventId); return n; });
+    
+    await supabase.from('event_participants').delete().match({ event_id: eventId, user_id: userId });
+  };
+
+  const handleDelete = async (eventId: string) => {
+    const confirm = window.confirm("Es-tu sûr de vouloir supprimer cet événement ?");
+    if (!confirm) return;
+    
+    // Optimistic update
+    setEvents(prev => prev.filter(ev => ev.id !== eventId));
+    await supabase.from('events').delete().eq('id', eventId);
   };
 
   return (
@@ -389,11 +444,13 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
         events.map(ev => {
           const isFull = ev.current_participants >= ev.max_participants;
           const isCreator = ev.creator_id === userId;
+          const isParticipant = participations.has(ev.id);
+          
           return (
             <div key={ev.id} className="glass p-4 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${isFull ? 'bg-red-500/20' : 'bg-brand-500/20'}`}>
-                  <Calendar className={`w-6 h-6 ${isFull ? 'text-red-400' : 'text-brand-400'}`} />
+                <div className={`p-2 rounded-xl ${isFull && !isParticipant ? 'bg-red-500/20' : 'bg-brand-500/20'}`}>
+                  <Calendar className={`w-6 h-6 ${isFull && !isParticipant ? 'text-red-400' : 'text-brand-400'}`} />
                 </div>
                 <div>
                   <h3 className="font-semibold text-sm text-white">{ev.title}</h3>
@@ -402,16 +459,40 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
                   </p>
                 </div>
               </div>
-              {!isCreator && !isFull && (
-                <button 
-                  onClick={() => handleJoin(ev.id)}
-                  className="bg-vibe-accent hover:bg-vibe-accent/80 text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-all active:scale-95"
-                >
-                  Rejoindre
-                </button>
-              )}
-              {isFull && <span className="text-xs text-red-400 font-medium">Complet</span>}
-              {isCreator && !isFull && <span className="text-xs text-brand-400 font-medium">Votre event</span>}
+              
+              <div className="flex items-center gap-2">
+                {isCreator ? (
+                   <>
+                     <span className="text-[10px] text-brand-400 font-medium px-2 py-1 bg-brand-500/10 rounded-md">Votre event</span>
+                     <button 
+                       onClick={() => handleDelete(ev.id)}
+                       className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                       title="Supprimer l'événement">
+                       <Trash2 className="w-4 h-4" />
+                     </button>
+                   </>
+                ) : (
+                   isParticipant ? (
+                     <button 
+                       onClick={() => handleLeave(ev.id)}
+                       className="bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-1.5 px-3 rounded-lg transition-all active:scale-95 border border-slate-600"
+                     >
+                       Quitter
+                     </button>
+                   ) : (
+                     !isFull ? (
+                       <button 
+                         onClick={() => handleJoin(ev.id)}
+                         className="bg-vibe-accent hover:bg-vibe-accent/80 text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-all active:scale-95"
+                       >
+                         Rejoindre
+                       </button>
+                     ) : (
+                       <span className="text-xs text-red-400 font-medium">Complet</span>
+                     )
+                   )
+                )}
+              </div>
             </div>
           );
         })

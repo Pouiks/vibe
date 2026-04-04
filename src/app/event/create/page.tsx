@@ -36,21 +36,28 @@ export default function CreateEventPage() {
 
     const startTime = new Date(Date.now() + delay * 60000).toISOString();
 
-    const { error: insertError } = await supabase.from('events').insert({
+    const { data: newEvent, error: insertError } = await supabase.from('events').insert({
       venue_id: venueId,
       creator_id: user.id,
       title: title.trim(),
       start_time: startTime,
       max_participants: maxParticipants,
       current_participants: 1,
-    });
+    }).select('id').single();
 
-    if (insertError) {
+    if (insertError || !newEvent) {
       console.error('Event creation error:', insertError);
       setError('Erreur lors de la création. Réessayez.');
       setLoading(false);
       return;
     }
+
+    // Fire push notifications to group members (non-blocking)
+    fetch('/api/events/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: newEvent.id }),
+    }).catch(err => console.error('Push notify error:', err));
 
     // Navigate back to the venue page
     if (venueSlug) {

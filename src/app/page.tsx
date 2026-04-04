@@ -3,13 +3,39 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ScanLine, MessageCircle, Crown, Zap } from 'lucide-react';
+import { MapPin, ScanLine, MessageCircle, Crown, Zap, Calendar } from 'lucide-react';
 
 interface Venue {
   id: string;
   slug: string;
   name: string;
   category: string;
+}
+
+interface MyEvent {
+  event_id: string;
+  created_at: string;
+  events: {
+    id: string;
+    title: string;
+    start_time: string;
+    current_participants: number;
+    max_participants: number;
+    venues: {
+      slug: string;
+      name: string;
+      category: string;
+    } | null
+  } | null
+}
+
+function formatCountdown(startTime: string) {
+  const diff = new Date(startTime).getTime() - Date.now();
+  if (diff <= 0) return 'Maintenant !';
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `Dans ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  return `Dans ${hrs}h${mins % 60 > 0 ? (mins % 60).toString().padStart(2, '0') : ''}`;
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -23,6 +49,7 @@ export default function Home() {
   const user = useVibeStore((state) => state.user);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [myEvents, setMyEvents] = useState<MyEvent[]>([]);
 
   useEffect(() => {
     supabase.from('venues')
@@ -33,6 +60,25 @@ export default function Home() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('event_participants')
+       .select(`
+         event_id, 
+         created_at, 
+         events!inner (
+           id, title, start_time, current_participants, max_participants, 
+           venues (slug, name, category)
+         )
+       `)
+       .eq('user_id', user.id)
+       .gte('events.start_time', new Date(Date.now() - 3600 * 1000).toISOString())
+       .order('created_at', { ascending: false })
+       .then(({data}) => {
+          if (data) setMyEvents(data as any);
+       });
+  }, [user]);
 
   return (
     <main className="min-h-[100dvh] flex flex-col bg-vibe-dark relative">
@@ -54,6 +100,38 @@ export default function Home() {
       </header>
 
       <div className="flex-1 p-4 pb-20">
+         {/* Mes Événements */}
+         {myEvents.length > 0 && (
+           <div className="mb-8">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-vibe-accent mb-3 ml-2 flex items-center gap-2">
+                <Calendar className="w-3 h-3" /> Mes événements
+              </h2>
+              <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory hide-scrollbar">
+                {myEvents.map((me) => {
+                   const ev = me.events;
+                   if (!ev || !ev.venues) return null;
+                   return (
+                     <Link key={me.event_id} href={`/l/${ev.venues.slug}?tab=events`} className="snap-start shrink-0 w-[240px] glass p-4 rounded-2xl flex flex-col justify-between active:scale-[0.98] transition-transform">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2 text-brand-300 text-[10px] font-bold uppercase">
+                             <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse"></div>
+                             {ev.venues.name}
+                          </div>
+                          <h3 className="font-bold text-white text-sm line-clamp-1 mb-1">{ev.title}</h3>
+                          <div className="text-xs text-slate-400">
+                            {ev.current_participants}/{ev.max_participants} membres
+                          </div>
+                        </div>
+                        <div className="mt-3 bg-brand-500/10 text-brand-400 text-xs font-semibold py-1.5 px-3 rounded-lg w-fit">
+                           {formatCountdown(ev.start_time)}
+                        </div>
+                     </Link>
+                   );
+                })}
+              </div>
+           </div>
+         )}
+
          {/* Bouton Principal Scanner */}
          <div className="glass p-5 rounded-3xl w-full flex flex-col gap-5 mb-8 relative overflow-hidden text-center items-center">
             <div className="absolute bottom-[-20%] right-[-10%] w-32 h-32 bg-vibe-accent rounded-full mix-blend-screen filter blur-[50px] opacity-20"></div>
