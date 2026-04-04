@@ -17,6 +17,14 @@ export const metadata: Metadata = {
   title: "VIBESPOT | Connect in the real world",
   description: "L'App'sociale de proximité. Scannez un QR Code, discutez et créez des événements éphémères autour de vous.",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "VibeSpot",
+  },
+  icons: {
+    apple: "/vibeSpot-192x192.png",
+  },
 };
 
 export default function RootLayout({

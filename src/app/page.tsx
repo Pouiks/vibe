@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { supabase } from '@/core/supabase/client';
 import { MapPin, ScanLine, MessageCircle, Crown, Zap, Calendar } from 'lucide-react';
+import { InstallPrompt } from '@/components/InstallPrompt';
 
 interface Venue {
   id: string;
@@ -195,6 +196,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+      
+      <InstallPrompt />
     </main>
   );
 }
