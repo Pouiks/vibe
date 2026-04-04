@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, Download, Share, PlusSquare } from "lucide-react";
+import { X, Download, Share, PlusSquare, Compass } from "lucide-react";
 
 export function InstallPrompt() {
   const [isIOS, setIsIOS] = useState(false);
+  const [isChromeIOS, setIsChromeIOS] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(true); // Default true to prevent flash
   const [isVisible, setIsVisible] = useState(false);
 
@@ -12,9 +14,18 @@ export function InstallPrompt() {
     const isPwa = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone;
     setIsStandalone(!!isPwa);
 
-    // Detect iOS
+    // Detect iOS and Chrome on iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const chromeIOS = navigator.userAgent.includes("CriOS");
     setIsIOS(iOS);
+    setIsChromeIOS(chromeIOS);
+
+    // Capture the generic Android/Desktop Chrome install event
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
     // If not installed and haven't dismissed recently, show the prompt
     if (!isPwa) {
@@ -23,11 +34,24 @@ export function InstallPrompt() {
         setIsVisible(true);
       }
     }
+
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   }, []);
 
   const handleDismiss = () => {
     setIsVisible(false);
     localStorage.setItem("vibe_install_dismissed", "true");
+  };
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setIsVisible(false);
+      }
+    }
   };
 
   if (isStandalone || !isVisible) return null;
@@ -52,17 +76,29 @@ export function InstallPrompt() {
           <div className="pt-0.5">
             <h3 className="text-white font-bold text-sm mb-1">Installer VibeSpot</h3>
             <p className="text-xs text-slate-300 leading-relaxed mb-3">
-              Ajoute l'app sur ton écran d'accueil pour scanner les lieux plus vite !
+              Ajoute l'app sur ton écran d'accueil pour l'ouvrir en fond d'écran !
             </p>
             
-            {isIOS ? (
+            {isChromeIOS ? (
+              <div className="bg-orange-500/20 rounded-xl p-3 text-[11px] font-medium text-orange-200 border border-orange-500/50">
+                <Compass className="inline w-3 h-3 mr-1 -mt-0.5" />
+                Apple bloque l'installation via Chrome. Ouvre ce lien dans <strong>Safari</strong> pour l'installer.
+              </div>
+            ) : isIOS ? (
               <div className="bg-vibe-dark/80 rounded-xl p-3 text-[11px] font-medium text-slate-300 border border-slate-700/50">
-                1. Appuie sur le bouton de Partage <Share className="inline w-3 h-3 mx-1" /><br/>
+                1. Appuie sur **Partager** <Share className="inline w-3 h-3 mx-1" /><br/>
                 2. Fais défiler puis **Sur l'écran d'accueil** <PlusSquare className="inline w-3 h-3 mx-1" />
               </div>
+            ) : deferredPrompt ? (
+              <button 
+                onClick={handleInstallClick}
+                className="w-full bg-brand-600 hover:bg-brand-500 active:scale-95 transition-all text-white py-2 rounded-xl text-xs font-bold shadow-lg"
+              >
+                Cliquer ici pour installer
+              </button>
             ) : (
               <div className="bg-vibe-dark/80 rounded-xl p-3 text-[11px] font-medium text-slate-300 border border-slate-700/50">
-                Ouvre le menu du navigateur (⋮) en haut à droite puis clique sur **"Ajouter à l'écran d'accueil"**
+                Ouvre le menu de ton navigateur (⋮) en haut à droite puis clique sur **"Ajouter à l'écran d'accueil"**
               </div>
             )}
           </div>
