@@ -1,17 +1,20 @@
 "use client";
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/core/supabase/client';
 
 export default function ConfirmPage() {
   const router = useRouter();
-
+  const searchParams = useSearchParams();
+  
   useEffect(() => {
+    const returnUrl = searchParams?.get('returnUrl') || '/';
+
     // Le client Supabase va automatiquement capter l'URL avec le #access_token
     // et va valider la session en local. On écoute donc l'événement de connexion.
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        router.replace('/');
+        router.replace(returnUrl);
       }
     });
 
@@ -19,7 +22,7 @@ export default function ConfirmPage() {
     const timeout = setTimeout(() => {
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) {
-          router.replace('/');
+          router.replace(returnUrl);
         } else {
           router.replace('/login?error=invalid_link');
         }

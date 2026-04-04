@@ -7,6 +7,7 @@ import { Mail, Sparkles, ArrowRight, CheckCircle, AlertCircle } from 'lucide-rea
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const hasError = searchParams?.get('error') === 'invalid_link';
+  const returnUrl = searchParams?.get('returnUrl') || '/';
   
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,10 +21,14 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    // On passe le returnUrl dans le lien de redirection de l'email pour restaurer la navigation
+    const redirectUrl = new URL('/auth/confirm', window.location.origin);
+    redirectUrl.searchParams.set('returnUrl', returnUrl);
+
     const { error: authError } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        emailRedirectTo: redirectUrl.toString(),
       },
     });
 

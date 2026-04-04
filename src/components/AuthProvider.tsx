@@ -16,7 +16,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user && !isPublicRoute) {
-      router.replace('/login');
+      const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+      router.replace(`/login?returnUrl=${returnUrl}`);
     }
   }, [loading, user, isPublicRoute, router]);
 
