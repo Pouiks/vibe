@@ -29,7 +29,8 @@ export default function LoginPage() {
 
     if (authError) {
       console.error('Magic link error:', authError);
-      setError('Erreur lors de l\'envoi. Vérifiez votre email.');
+      // On affiche le vrai message de Supabase pour savoir s'il s'agit d'une limite de spam (Rate Limit)
+      setError(`Erreur Supabase: ${authError.message}`);
       setLoading(false);
       return;
     }
