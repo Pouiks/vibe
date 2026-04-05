@@ -53,12 +53,13 @@ CREATE INDEX idx_venues_location ON public.venues USING GIST(location);
 CREATE INDEX idx_venues_city_slug ON public.venues(city_slug);
 
 -- View exposing lat/lng from geography column for client-side consumption
+-- Uses tiger-schema-qualified PostGIS functions (Supabase installs PostGIS in tiger schema)
 CREATE VIEW public.venues_with_coords AS
 SELECT
   id, slug, name, category, city_slug, neighborhood,
   scans_count, last_activity_at, owner_id, created_at,
-  ST_Y(location::geometry) AS lat,
-  ST_X(location::geometry) AS lng
+  tiger.ST_Y(location::tiger.geometry) AS lat,
+  tiger.ST_X(location::tiger.geometry) AS lng
 FROM public.venues;
 
 -- 3. Events
@@ -167,12 +168,12 @@ BEGIN
   RETURN QUERY
   SELECT v.id, v.slug, v.name, v.category,
          v.city_slug, v.neighborhood, v.scans_count,
-         ST_X(v.location::geometry)::float AS lng,
-         ST_Y(v.location::geometry)::float AS lat
+         tiger.ST_X(v.location::tiger.geometry)::float AS lng,
+         tiger.ST_Y(v.location::tiger.geometry)::float AS lat
   FROM public.venues v
-  WHERE v.location && ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326)::geography;
+  WHERE v.location && tiger.ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326)::geography;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, tiger;
 
 -- RPC: Find venues within a radius of a point (for "spots around me")
 CREATE OR REPLACE FUNCTION public.get_venues_nearby(
@@ -185,14 +186,14 @@ RETURNS TABLE(
 BEGIN
   RETURN QUERY
   SELECT v.id, v.slug, v.name, v.category, v.scans_count,
-         ST_Distance(v.location, ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography)::float AS distance_m,
-         ST_X(v.location::geometry)::float AS lng,
-         ST_Y(v.location::geometry)::float AS lat
+         tiger.ST_Distance(v.location, tiger.ST_SetSRID(tiger.ST_MakePoint(user_lng, user_lat), 4326)::geography)::float AS distance_m,
+         tiger.ST_X(v.location::tiger.geometry)::float AS lng,
+         tiger.ST_Y(v.location::tiger.geometry)::float AS lat
   FROM public.venues v
-  WHERE ST_DWithin(v.location, ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography, radius_meters)
+  WHERE tiger.ST_DWithin(v.location, tiger.ST_SetSRID(tiger.ST_MakePoint(user_lng, user_lat), 4326)::geography, radius_meters)
   ORDER BY distance_m ASC;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, tiger;
 
 
 -- ROW LEVEL SECURITY (RLS)

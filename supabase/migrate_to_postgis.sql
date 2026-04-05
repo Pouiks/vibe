@@ -69,8 +69,8 @@ CREATE OR REPLACE VIEW public.venues_with_coords AS
 SELECT
   id, slug, name, category, city_slug, neighborhood,
   scans_count, last_activity_at, owner_id, created_at,
-  ST_Y(location::geometry) AS lat,
-  ST_X(location::geometry) AS lng
+  tiger.ST_Y(location::tiger.geometry) AS lat,
+  tiger.ST_X(location::tiger.geometry) AS lng
 FROM public.venues;
 
 
@@ -109,12 +109,12 @@ BEGIN
   RETURN QUERY
   SELECT v.id, v.slug, v.name, v.category,
          v.city_slug, v.neighborhood, v.scans_count,
-         ST_X(v.location::geometry)::float AS lng,
-         ST_Y(v.location::geometry)::float AS lat
+         tiger.ST_X(v.location::tiger.geometry)::float AS lng,
+         tiger.ST_Y(v.location::tiger.geometry)::float AS lat
   FROM public.venues v
-  WHERE v.location && ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326)::geography;
+  WHERE v.location && tiger.ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326)::geography;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, tiger;
 
 
 -- =====================
@@ -130,11 +130,11 @@ RETURNS TABLE(
 BEGIN
   RETURN QUERY
   SELECT v.id, v.slug, v.name, v.category, v.scans_count,
-         ST_Distance(v.location, ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography)::float AS distance_m,
-         ST_X(v.location::geometry)::float AS lng,
-         ST_Y(v.location::geometry)::float AS lat
+         tiger.ST_Distance(v.location, tiger.ST_SetSRID(tiger.ST_MakePoint(user_lng, user_lat), 4326)::geography)::float AS distance_m,
+         tiger.ST_X(v.location::tiger.geometry)::float AS lng,
+         tiger.ST_Y(v.location::tiger.geometry)::float AS lat
   FROM public.venues v
-  WHERE ST_DWithin(v.location, ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography, radius_meters)
+  WHERE tiger.ST_DWithin(v.location, tiger.ST_SetSRID(tiger.ST_MakePoint(user_lng, user_lat), 4326)::geography, radius_meters)
   ORDER BY distance_m ASC;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, tiger;

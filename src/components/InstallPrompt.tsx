@@ -58,7 +58,7 @@ export function InstallPrompt() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4 animate-slide-up pb-8">
-      <div className="glass p-5 rounded-3xl relative overflow-hidden shadow-[0_0_40px_rgba(99,102,241,0.2)] border border-brand-500/30">
+      <div className="bg-[#1a1d2e] p-5 rounded-3xl relative overflow-hidden shadow-[0_0_40px_rgba(99,102,241,0.2)] border border-brand-500/30">
         <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500 rounded-full mix-blend-screen filter blur-[50px] opacity-20 pointer-events-none"></div>
         
         <button 
