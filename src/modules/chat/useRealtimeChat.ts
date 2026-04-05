@@ -20,6 +20,7 @@ export function useRealtimeChat(venueId: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [onlineCount, setOnlineCount] = useState(0);
+  const [onSiteCount, setOnSiteCount] = useState(0);
   const channelRef = useRef<any>(null);
 
   // Fetch initial messages
@@ -74,12 +75,17 @@ export function useRealtimeChat(venueId: string) {
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        let count = 0;
+        let total = 0;
+        let onSite = 0;
         for (const id in state) { 
            const tabs = state[id] as any[];
-           if (tabs.some(t => t.is_present)) count++;
+           total++;
+           if (tabs.some(t => t.is_present)) onSite++;
         }
-        if (isMounted) setOnlineCount(count);
+        if (isMounted) {
+          setOnlineCount(total);
+          setOnSiteCount(onSite);
+        }
       })
       .on(
         'postgres_changes',
@@ -189,19 +195,24 @@ export function useRealtimeChat(venueId: string) {
 
     // We proceed directly to database insert
 
-    const { error } = await supabase.from('messages').insert({
+    const { data: inserted, error } = await supabase.from('messages').insert({
       venue_id: venueId,
       user_id: user.id,
       content: content,
       is_on_site: writePermission
-    });
+    }).select('id, venue_id, content, user_id').single();
 
-    if (error) {
+    if (error || !inserted) {
       console.error('Error sending message:', error);
-      // Remove optimistic message on error
       setMessages((prev) => prev.filter(m => m.id !== tempId));
       return false;
     }
+
+    fetch('/api/webhooks/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: inserted }),
+    }).catch(() => {});
 
     return true;
   }, [venueId, user, writePermission]);
@@ -242,5 +253,5 @@ export function useRealtimeChat(venueId: string) {
     });
   }, [user]);
 
-  return { messages, loading, onlineCount, sendMessage, toggleReaction };
+  return { messages, loading, onlineCount, onSiteCount, sendMessage, toggleReaction };
 }

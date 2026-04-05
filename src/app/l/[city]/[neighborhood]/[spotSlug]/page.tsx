@@ -85,7 +85,10 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     if (isScanned) {
       supabase.from('channel_subscriptions')
         .upsert({ venue_id: venue.id, user_id: user.id }, { onConflict: 'user_id,venue_id' })
-        .then(() => setHasUnlockedArea(true));
+        .then(() => {
+          setHasUnlockedArea(true);
+          subscribeToPush();
+        });
     } else {
       supabase.from('channel_subscriptions')
         .select('venue_id')
@@ -104,9 +107,9 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   const [loadingSub, setLoadingSub] = useState(true);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
-  const { messages, loading: chatLoading, onlineCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug);
+  const { messages, loading: chatLoading, onlineCount, onSiteCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug);
   const { distance, error: geoError } = useGeofencing(venue?.lat, venue?.lng);
-  const { toggleVenueSubscription } = usePushNotifications();
+  const { toggleVenueSubscription, subscribeToPush } = usePushNotifications();
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const vp = useVisualViewport();
@@ -195,6 +198,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                 ) : (
                   <span className="text-orange-400 flex items-center gap-1"><Info className="w-2.5 h-2.5" /> Spectateur</span>
                 )}
+                {onSiteCount > 0 && <span className="text-emerald-500">· {onSiteCount} sur place</span>}
                 <span className="text-blue-600">· {onlineCount} en ligne</span>
               </div>
             </div>

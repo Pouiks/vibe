@@ -5,8 +5,8 @@ self.addEventListener('push', function(event) {
     // Customize notification UI
     const options = {
       body: data.body,
-      icon: '/file.svg', // Replace with real 192x192 PWA maskable icon later
-      badge: '/file.svg',
+      icon: '/vibeSpot-192x192.png',
+      badge: '/vibeSpot-192x192.png',
       data: data.data || { url: '/' },
       vibrate: [200, 100, 200]
     };
