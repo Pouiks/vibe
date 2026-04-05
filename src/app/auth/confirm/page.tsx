@@ -1,39 +1,41 @@
 "use client";
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/core/supabase/client';
 
 export default function ConfirmPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+  const handled = useRef(false);
+
   useEffect(() => {
+    if (handled.current) return;
+    handled.current = true;
+
     const returnUrl = searchParams?.get('returnUrl') || '/';
 
-    // Le client Supabase va automatiquement capter l'URL avec le #access_token
-    // et va valider la session en local. On écoute donc l'événement de connexion.
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        router.replace(returnUrl);
-      }
-    });
-
-    // Timeout de sécurité si le hash est invalide ou absent
-    const timeout = setTimeout(() => {
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
           router.replace(returnUrl);
-        } else {
-          router.replace('/login?error=invalid_link');
         }
-      });
-    }, 2500);
+      }
+    );
+
+    const timeout = setTimeout(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        router.replace(returnUrl);
+      } else {
+        router.replace('/login?error=invalid_link');
+      }
+    }, 3000);
 
     return () => {
       authListener.subscription.unsubscribe();
       clearTimeout(timeout);
     };
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-vibe-dark text-white">

@@ -6,7 +6,7 @@ import type { VenueGeoJSON } from './types';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const DARK_STYLE: maplibregl.StyleSpecification = {
+const MAP_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
     osm: {
@@ -22,19 +22,20 @@ const DARK_STYLE: maplibregl.StyleSpecification = {
       type: 'raster',
       source: 'osm',
       paint: {
-        'raster-saturation': -0.8,
-        'raster-brightness-max': 0.4,
-        'raster-contrast': 0.2,
+        'raster-saturation': -0.3,
+        'raster-brightness-min': 0.15,
+        'raster-brightness-max': 0.85,
+        'raster-contrast': 0.1,
       },
     },
   ],
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  sport: '#10b981',
-  cafe: '#f59e0b',
-  bar: '#ef4444',
-  other: '#6366f1',
+  sport: '#34d399',
+  cafe: '#fbbf24',
+  bar: '#f87171',
+  other: '#818cf8',
 };
 
 interface MapViewProps {
@@ -72,7 +73,7 @@ export default function MapView({
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: DARK_STYLE,
+      style: MAP_STYLE,
       center: center as [number, number],
       zoom: initialZoom,
       attributionControl: false,
@@ -98,31 +99,52 @@ export default function MapView({
         source: 'venues',
         maxzoom: 16,
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'scans_count'], 0, 0.1, 50, 1],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 0.5, 15, 1.5],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 15, 15, 30],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'scans_count'], 0, 0.3, 50, 1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 15, 1.8],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 20, 15, 40],
           'heatmap-color': [
             'interpolate', ['linear'], ['heatmap-density'],
-            0, 'rgba(99,102,241,0)',
-            0.2, 'rgba(99,102,241,0.3)',
-            0.4, 'rgba(129,140,248,0.5)',
-            0.6, 'rgba(167,139,250,0.6)',
-            0.8, 'rgba(245,158,11,0.7)',
-            1, 'rgba(239,68,68,0.8)',
+            0, 'rgba(129,140,248,0)',
+            0.15, 'rgba(129,140,248,0.25)',
+            0.3, 'rgba(167,139,250,0.45)',
+            0.5, 'rgba(251,191,36,0.55)',
+            0.7, 'rgba(248,113,113,0.65)',
+            1, 'rgba(244,63,94,0.8)',
           ],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.8, 16, 0],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.7, 16, 0],
         },
       });
 
-      // Circle markers — unlocked spots (bright, with glow)
+      // Glow ring behind active spots
+      map.addLayer({
+        id: 'venues-glow',
+        type: 'circle',
+        source: 'venues',
+        minzoom: 10,
+        filter: ['==', ['get', 'is_unlocked'], true],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 16, 16, 28],
+          'circle-color': [
+            'match', ['get', 'category'],
+            'sport', CATEGORY_COLORS.sport,
+            'cafe', CATEGORY_COLORS.cafe,
+            'bar', CATEGORY_COLORS.bar,
+            CATEGORY_COLORS.other,
+          ],
+          'circle-opacity': 0.25,
+          'circle-blur': 1,
+        },
+      });
+
+      // Circle markers — unlocked spots (vivid, prominent)
       map.addLayer({
         id: 'venues-circles-active',
         type: 'circle',
         source: 'venues',
-        minzoom: 12,
+        minzoom: 10,
         filter: ['==', ['get', 'is_unlocked'], true],
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 8, 16, 14],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 9, 16, 16],
           'circle-color': [
             'match', ['get', 'category'],
             'sport', CATEGORY_COLORS.sport,
@@ -132,25 +154,31 @@ export default function MapView({
           ],
           'circle-opacity': 1,
           'circle-stroke-width': 3,
-          'circle-stroke-color': 'rgba(255,255,255,0.3)',
+          'circle-stroke-color': '#ffffff',
           'circle-blur': 0,
         },
       });
 
-      // Circle markers — locked spots (dimmed, fog of war)
+      // Circle markers — locked spots (still visible, but muted)
       map.addLayer({
         id: 'venues-circles-preview',
         type: 'circle',
         source: 'venues',
-        minzoom: 12,
+        minzoom: 10,
         filter: ['!=', ['get', 'is_unlocked'], true],
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 5, 16, 10],
-          'circle-color': '#475569',
-          'circle-opacity': 0.5,
-          'circle-stroke-width': 1.5,
-          'circle-stroke-color': '#1e293b',
-          'circle-blur': 0.4,
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 7, 16, 13],
+          'circle-color': [
+            'match', ['get', 'category'],
+            'sport', CATEGORY_COLORS.sport,
+            'cafe', CATEGORY_COLORS.cafe,
+            'bar', CATEGORY_COLORS.bar,
+            CATEGORY_COLORS.other,
+          ],
+          'circle-opacity': 0.6,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': 'rgba(255,255,255,0.4)',
+          'circle-blur': 0,
         },
       });
 
@@ -159,18 +187,19 @@ export default function MapView({
         id: 'venues-labels',
         type: 'symbol',
         source: 'venues',
-        minzoom: 14,
+        minzoom: 13,
         layout: {
           'text-field': ['get', 'name'],
-          'text-size': 11,
-          'text-offset': [0, 1.8],
+          'text-size': 12,
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-offset': [0, 2],
           'text-anchor': 'top',
           'text-max-width': 10,
         },
         paint: {
-          'text-color': '#e2e8f0',
-          'text-halo-color': '#0f111a',
-          'text-halo-width': 1.5,
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.7)',
+          'text-halo-width': 2,
         },
       });
 

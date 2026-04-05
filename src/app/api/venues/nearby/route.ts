@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/core/supabase/client';
+import { createServerSupabase } from '@/core/supabase/server';
 import { toGeoJSON, type MapVenue } from '@/modules/map/types';
 
 export async function GET(request: NextRequest) {
+  const supabase = await createServerSupabase();
   const { searchParams } = new URL(request.url);
 
   const lng = searchParams.get('lng');

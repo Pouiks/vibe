@@ -12,5 +12,5 @@ VALUES
   ('00000000-0000-4000-8000-000000000004', 'bordeaux/bastide/darwin', 'Darwin Ecosystème', 'other', 'bordeaux', 'Bastide', ST_SetSRID(ST_MakePoint(-0.5594, 44.8488), 4326)::geography),
   ('00000000-0000-4000-8000-000000000005', 'bordeaux/centre/basic-fit', 'Basic-Fit Centre', 'sport', 'bordeaux', 'Centre', ST_SetSRID(ST_MakePoint(-0.5792, 44.8378), 4326)::geography),
   ('00000000-0000-4000-8000-000000000006', 'bordeaux/montcalm/basket-court', 'Terrain de Basket Montcalm', 'sport', 'bordeaux', 'Montcalm', ST_SetSRID(ST_MakePoint(-0.5950, 44.8295), 4326)::geography),
-  ('00000000-0000-4000-8000-000000000007', 'montpellier/beaux-arts/maison-virgile', 'Maison de Virgile', 'other', 'montpellier', 'Beaux-Arts', ST_SetSRID(ST_MakePoint(3.8424382, 43.5919731), 4326)::geography)
+  ('00000000-0000-4000-8000-000000000007', 'montpellier/ovalie/maison-de-virgile', 'Maison de Virgile', 'other', 'montpellier', 'Ovalie', ST_SetSRID(ST_MakePoint(3.8424382, 43.5919731), 4326)::geography)
 ON CONFLICT (slug) DO NOTHING;

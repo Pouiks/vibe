@@ -7,7 +7,7 @@ import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2 } from 'lucide-react';
+import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 
@@ -174,16 +174,22 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
            </div>
            
            <div className="flex items-center gap-3">
-             {!loadingSub && (
+             {user && !loadingSub && (
                <button onClick={toggleFollow} className={`p-2 rounded-full transition-colors ${isFollowing ? 'bg-brand-500/20 text-brand-400' : 'bg-vibe-dark/50 text-slate-500 hover:text-slate-300'}`}>
                  {isFollowing ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
                </button>
              )}
 
-             <Link href="/profile" className="flex items-center justify-center w-9 h-9 rounded-full bg-brand-600 border border-brand-500/50 shadow-[0_0_10px_rgba(99,102,241,0.4)] transition-transform hover:scale-105 active:scale-95 text-white font-bold tracking-widest text-xs relative">
-                {user?.username?.substring(0, 2).toUpperCase()}
-                {user?.isPremium && <Crown className="absolute -top-1 -right-1 w-3 h-3 text-vibe-accent drop-shadow-md" />}
-             </Link>
+             {user ? (
+               <Link href="/profile" className="flex items-center justify-center w-9 h-9 rounded-full bg-brand-600 border border-brand-500/50 shadow-[0_0_10px_rgba(99,102,241,0.4)] transition-transform hover:scale-105 active:scale-95 text-white font-bold tracking-widest text-xs relative">
+                  {user.username.substring(0, 2).toUpperCase()}
+                  {user.isPremium && <Crown className="absolute -top-1 -right-1 w-3 h-3 text-vibe-accent drop-shadow-md" />}
+               </Link>
+             ) : (
+               <Link href={`/login?returnUrl=${encodeURIComponent(`/l/${fullSlug}${isScanned ? '?scanned=true' : ''}`)}`} className="bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold py-2 px-3 rounded-xl transition-all active:scale-95 flex items-center gap-1.5">
+                 <Sparkles className="w-3.5 h-3.5" /> Connexion
+               </Link>
+             )}
            </div>
         </div>
 
@@ -299,23 +305,32 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
       {activeTab === 'chat' && (
         <div className="absolute bottom-0 w-full p-4 bg-gradient-to-t from-vibe-dark via-vibe-dark to-transparent pt-12 pb-6 z-20">
-          <form onSubmit={handleSend} className="relative flex items-center">
-            <input 
-              type="text" 
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              disabled={!hasUnlockedArea}
-              placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire ici."}
-              className={`w-full glass pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-500 transition-colors text-sm shadow-[0_4px_20px_rgba(0,0,0,0.3)] ${!hasUnlockedArea ? 'opacity-50 cursor-not-allowed' : ''}`}
-            />
-            <button 
-              type="submit"
-              disabled={!hasUnlockedArea || !newMessage.trim()}
-              className="absolute right-2 p-2 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-700 disabled:text-slate-400 text-white rounded-xl transition-all active:scale-90"
+          {!user ? (
+            <Link
+              href={`/login?returnUrl=${encodeURIComponent(`/l/${fullSlug}${isScanned ? '?scanned=true' : ''}`)}`}
+              className="block w-full bg-brand-600 hover:bg-brand-500 text-white font-semibold py-3.5 px-4 rounded-2xl text-center text-sm transition-all active:scale-95 shadow-[0_4px_20px_rgba(99,102,241,0.3)] flex items-center justify-center gap-2"
             >
-               <Send className="w-4 h-4" />
-            </button>
-          </form>
+              <Sparkles className="w-4 h-4" /> Connecte-toi pour participer
+            </Link>
+          ) : (
+            <form onSubmit={handleSend} className="relative flex items-center">
+              <input 
+                type="text" 
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                disabled={!hasUnlockedArea}
+                placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire ici."}
+                className={`w-full glass pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-500 transition-colors text-sm shadow-[0_4px_20px_rgba(0,0,0,0.3)] ${!hasUnlockedArea ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
+              <button 
+                type="submit"
+                disabled={!hasUnlockedArea || !newMessage.trim()}
+                className="absolute right-2 p-2 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-700 disabled:text-slate-400 text-white rounded-xl transition-all active:scale-90"
+              >
+                 <Send className="w-4 h-4" />
+              </button>
+            </form>
+          )}
         </div>
       )}
     </div>
