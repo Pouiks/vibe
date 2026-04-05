@@ -66,23 +66,22 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
   useEffect(() => {
     let isMounted = true;
-    (async () => {
-      try {
-        const { data, error } = await supabase.from('venues_with_coords')
-          .select('id, slug, name, category, city_slug, neighborhood, lat, lng')
-          .eq('slug', fullSlug)
-          .maybeSingle();
-        if (error) console.error('[Venue fetch]', error);
+    const ctrl = new AbortController();
+
+    fetch(`/api/venues/by-slug?slug=${encodeURIComponent(fullSlug)}`, { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(data => {
         if (isMounted) {
-          setVenue(data);
+          setVenue(data?.id ? data : null);
           setVenueLoading(false);
         }
-      } catch (err) {
-        console.error('[Venue fetch] network error', err);
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') console.error('[Venue fetch]', err);
         if (isMounted) setVenueLoading(false);
-      }
-    })();
-    return () => { isMounted = false };
+      });
+
+    return () => { isMounted = false; ctrl.abort(); };
   }, [fullSlug]);
 
   useEffect(() => {
