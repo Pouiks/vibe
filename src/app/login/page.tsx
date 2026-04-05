@@ -32,10 +32,10 @@ function OtpInput({ value, onChange, onComplete, disabled }: {
           <div
             key={i}
             className={`w-9 h-12 rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all ${i < value.length
-                ? 'border-blue-600 bg-blue-50 text-blue-700'
-                : i === value.length
-                  ? 'border-blue-400 bg-white text-slate-900'
-                  : 'border-slate-200 bg-white text-slate-300'
+              ? 'border-blue-600 bg-blue-50 text-blue-700'
+              : i === value.length
+                ? 'border-blue-400 bg-white text-slate-900'
+                : 'border-slate-200 bg-white text-slate-300'
               }`}
           >
             {value[i] || ''}
