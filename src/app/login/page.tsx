@@ -4,7 +4,7 @@ import { supabase } from '@/core/supabase/client';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Mail, Sparkles, ArrowRight, ShieldCheck, AlertCircle, RotateCcw } from 'lucide-react';
 
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 8;
 
 function OtpInput({ value, onChange, onComplete, disabled }: {
   value: string;
