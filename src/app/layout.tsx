@@ -6,7 +6,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const viewport: Viewport = {
-  themeColor: '#0f111a',
+  themeColor: '#f8fafc',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "VibeSpot",
   },
   icons: {
@@ -33,8 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className="dark">
-      <body className={`${inter.className} bg-vibe-dark text-white min-h-screen antialiased`}>
+    <html lang="fr">
+      <body className={`${inter.className} bg-slate-50 text-slate-900 min-h-screen antialiased`}>
         <AuthProvider>
           {children}
         </AuthProvider>

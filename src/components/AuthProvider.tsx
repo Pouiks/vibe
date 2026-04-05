@@ -23,10 +23,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-vibe-dark text-white">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-medium tracking-widest text-brand-500 uppercase">Synchronisation VibeSpot...</p>
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-sm font-medium tracking-widest text-blue-600 uppercase">Synchronisation VibeSpot...</p>
         </div>
       </div>
     );
@@ -35,10 +35,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Show login page for unauthenticated users on non-public routes
   if (!user && !isPublicRoute) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-vibe-dark text-white">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-medium tracking-widest text-brand-500 uppercase">Redirection...</p>
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-sm font-medium tracking-widest text-blue-600 uppercase">Redirection...</p>
         </div>
       </div>
     );

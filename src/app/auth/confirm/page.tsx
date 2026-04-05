@@ -53,10 +53,10 @@ export default function ConfirmPage() {
   }, [router, searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-vibe-dark text-white">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="animate-pulse flex flex-col items-center">
-        <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-sm font-medium tracking-widest text-brand-500 uppercase">Validation en cours...</p>
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm font-medium tracking-widest text-blue-600 uppercase">Validation en cours...</p>
       </div>
     </div>
   );

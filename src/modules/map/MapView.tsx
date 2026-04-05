@@ -22,10 +22,10 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
       type: 'raster',
       source: 'osm',
       paint: {
-        'raster-saturation': -0.3,
-        'raster-brightness-min': 0.15,
-        'raster-brightness-max': 0.85,
-        'raster-contrast': 0.1,
+        'raster-saturation': 0,
+        'raster-brightness-min': 0.2,
+        'raster-brightness-max': 1.0,
+        'raster-contrast': 0.05,
       },
     },
   ],
@@ -197,8 +197,8 @@ export default function MapView({
           'text-max-width': 10,
         },
         paint: {
-          'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.7)',
+          'text-color': '#1e293b',
+          'text-halo-color': 'rgba(255,255,255,0.9)',
           'text-halo-width': 2,
         },
       });
@@ -265,7 +265,7 @@ export default function MapView({
     <div className={`relative ${className}`}>
       <div ref={mapContainer} className="w-full h-full rounded-2xl overflow-hidden" />
       {loading && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-vibe-dark/80 backdrop-blur-sm text-brand-400 text-xs font-medium px-3 py-1.5 rounded-full border border-brand-500/20">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm text-blue-600 text-xs font-medium px-3 py-1.5 rounded-full border border-blue-200">
           Chargement des spots...
         </div>
       )}

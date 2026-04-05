@@ -52,14 +52,12 @@ export default function CreateEventPage() {
       return;
     }
 
-    // Fire push notifications to group members (non-blocking)
     fetch('/api/events/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event_id: newEvent.id }),
     }).catch(err => console.error('Push notify error:', err));
 
-    // Navigate back to the venue page
     if (venueSlug) {
       router.push(`/l/${venueSlug}`);
     } else {
@@ -69,45 +67,45 @@ export default function CreateEventPage() {
 
   if (!hasAccess && !writePermission) {
     return (
-       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-vibe-dark text-center">
+       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
          <AlertCircle className="w-12 h-12 text-yellow-500 mb-4" />
-         <h1 className="text-xl font-bold mb-2">Accès restreint</h1>
-         <p className="text-slate-400 mb-6 max-w-sm">Vous devez être sur place ou posséder le Social Pass pour créer un événement flash.</p>
-         <Link href="/" className="bg-brand-600 px-4 py-2 rounded-xl text-white font-medium">Retour</Link>
+         <h1 className="text-xl font-bold text-slate-900 mb-2">Accès restreint</h1>
+         <p className="text-slate-500 mb-6 max-w-sm">Vous devez être sur place ou posséder le Social Pass pour créer un événement flash.</p>
+         <Link href="/" className="bg-blue-600 px-4 py-2 rounded-xl text-white font-medium">Retour</Link>
        </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 flex flex-col bg-vibe-dark relative">
-      <Link href={venueSlug ? `/l/${venueSlug}` : '/'} className="text-slate-400 mb-6 w-fit hover:text-white flex items-center gap-1">
+    <div className="min-h-screen p-6 flex flex-col bg-slate-50">
+      <Link href={venueSlug ? `/l/${venueSlug}` : '/'} className="text-slate-500 mb-6 w-fit hover:text-slate-900 flex items-center gap-1">
         <ArrowLeft className="w-4 h-4" /> Retour
       </Link>
       
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold mb-2 text-white">Créer un Event Flash</h1>
-        <p className="text-slate-400 text-sm">Organisez une activité sur place instantanément.</p>
+        <h1 className="text-3xl font-extrabold mb-2 text-slate-900">Créer un Event Flash</h1>
+        <p className="text-slate-500 text-sm">Organisez une activité sur place instantanément.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300 ml-1">Titre de l'événement</label>
+          <label className="text-sm font-medium text-slate-600 ml-1">Titre de l'événement</label>
           <input 
             type="text" 
             required
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Ex: 3vs3 Basket" 
-            className="glass w-full px-4 py-3 rounded-2xl outline-none focus:border-brand-500 transition-colors"
+            className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
           />
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300 ml-1">Dans combien de temps ?</label>
+          <label className="text-sm font-medium text-slate-600 ml-1">Dans combien de temps ?</label>
           <select 
             value={delay} 
             onChange={e => setDelay(Number(e.target.value))}
-            className="glass w-full px-4 py-3 rounded-2xl outline-none focus:border-brand-500 transition-colors appearance-none"
+            className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors appearance-none text-slate-900"
           >
              <option value={15}>Dans 15 minutes</option>
              <option value={30}>Dans 30 minutes</option>
@@ -117,27 +115,25 @@ export default function CreateEventPage() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300 ml-1">Places disponibles</label>
+          <label className="text-sm font-medium text-slate-600 ml-1">Places disponibles</label>
           <input 
             type="number" 
             min={2} max={20} 
             value={maxParticipants}
             onChange={e => setMaxParticipants(Number(e.target.value))}
             required
-            className="glass w-full px-4 py-3 rounded-2xl outline-none focus:border-brand-500 transition-colors"
+            className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
           />
         </div>
         
-        {/* Premium Upsell */}
         {!isPremium && (
-          <div className="mt-4 p-4 rounded-2xl border border-vibe-accent/30 bg-vibe-accent/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-vibe-accent rounded-full mix-blend-screen filter blur-[50px] opacity-20"></div>
+          <div className="mt-4 p-4 rounded-2xl border border-blue-200 bg-blue-50">
             <div className="flex items-start gap-4 p-1">
-               <Sparkles className="w-8 h-8 text-vibe-accent flex-shrink-0" />
+               <Sparkles className="w-8 h-8 text-blue-600 flex-shrink-0" />
                <div>
-                  <h3 className="font-bold text-vibe-accent mb-1 text-sm">Passer Premium (Social Pass)</h3>
-                  <p className="text-xs text-slate-400 mb-3 leading-relaxed">Le premier événement de la journée est gratuit. Pour créer en illimité et obtenir le badge certifié, souscrivez au pass.</p>
-                  <button type="button" className="text-xs bg-vibe-accent hover:bg-vibe-accent/80 text-white py-1.5 px-3 rounded-lg font-medium transition-colors">
+                  <h3 className="font-bold text-blue-700 mb-1 text-sm">Passer Premium (Social Pass)</h3>
+                  <p className="text-xs text-slate-500 mb-3 leading-relaxed">Le premier événement de la journée est gratuit. Pour créer en illimité et obtenir le badge certifié, souscrivez au pass.</p>
+                  <button type="button" className="text-xs bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-3 rounded-lg font-medium transition-colors">
                      S'abonner via Stripe (POC)
                   </button>
                </div>
@@ -146,13 +142,13 @@ export default function CreateEventPage() {
         )}
 
         {error && (
-          <p className="text-red-400 text-sm text-center">{error}</p>
+          <p className="text-red-500 text-sm text-center">{error}</p>
         )}
 
         <button 
           type="submit" 
           disabled={loading || !title.trim()}
-          className="mt-6 w-full bg-brand-600 hover:bg-brand-500 text-white font-medium py-3.5 px-4 rounded-xl transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] active:scale-95 disabled:opacity-50"
+          className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3.5 px-4 rounded-xl transition-all active:scale-95 disabled:opacity-50"
         >
           {loading ? 'Création...' : 'Lancer l\'événement !'}
         </button>

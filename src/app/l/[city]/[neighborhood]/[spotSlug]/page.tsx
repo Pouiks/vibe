@@ -152,20 +152,20 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
   if (venueLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-vibe-dark">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-400 text-sm">Chargement du lieu...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-slate-500 text-sm">Chargement du lieu...</p>
       </div>
     );
   }
 
   if (!venue) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-vibe-dark">
-        <ShieldAlert className="w-12 h-12 text-red-400 mb-4" />
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50">
+        <ShieldAlert className="w-12 h-12 text-red-500 mb-4" />
         <h1 className="text-xl font-bold">Lieu introuvable</h1>
-        <p className="text-slate-400 mb-6">Ce QR Code ne semble rattaché à aucun lieu existant.</p>
-        <Link href="/" className="bg-brand-600 px-4 py-2 rounded-xl text-white font-medium text-sm">Retour à l'accueil</Link>
+        <p className="text-slate-500 mb-6">Ce QR Code ne semble rattaché à aucun lieu existant.</p>
+        <Link href="/" className="bg-blue-600 px-4 py-2 rounded-xl text-white font-medium text-sm">Retour à l'accueil</Link>
       </div>
     );
   }
@@ -175,18 +175,18 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     : { height: '100dvh', top: '0px' };
 
   return (
-    <div style={containerStyle} className="fixed inset-x-0 flex flex-col bg-vibe-dark overflow-hidden">
+    <div style={containerStyle} className="fixed inset-x-0 flex flex-col bg-slate-50 overflow-hidden">
 
       {/* ── Header ── */}
-      <header className="shrink-0 bg-vibe-dark/95 backdrop-blur-md border-b border-vibe-border z-20 px-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <header className="shrink-0 bg-slate-50/95 backdrop-blur-md border-b border-slate-200 z-20 px-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between py-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Link href="/" className="shrink-0 p-1.5 -ml-1 text-slate-400 active:text-white">
+            <Link href="/" className="shrink-0 p-1.5 -ml-1 text-slate-500 active:text-slate-900">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="min-w-0">
-              <h1 className="font-bold text-base text-white truncate flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+              <h1 className="font-bold text-base text-slate-900 truncate flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                 {venue.name}
               </h1>
               <div className="flex items-center gap-1.5 text-[11px]">
@@ -195,39 +195,39 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                 ) : (
                   <span className="text-orange-400 flex items-center gap-1"><Info className="w-2.5 h-2.5" /> Spectateur</span>
                 )}
-                <span className="text-brand-300">· {onlineCount} en ligne</span>
+                <span className="text-blue-600">· {onlineCount} en ligne</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             {user && !loadingSub && (
-              <button onClick={toggleFollow} className={`p-1.5 rounded-full ${isFollowing ? 'text-brand-400' : 'text-slate-500'}`}>
+              <button onClick={toggleFollow} className={`p-1.5 rounded-full ${isFollowing ? 'text-blue-600' : 'text-slate-400'}`}>
                 {isFollowing ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
               </button>
             )}
             {user ? (
-              <Link href="/profile" className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-[11px] relative">
+              <Link href="/profile" className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-[11px] relative">
                 {user.username.substring(0, 2).toUpperCase()}
-                {user.isPremium && <Crown className="absolute -top-0.5 -right-0.5 w-3 h-3 text-vibe-accent" />}
+                {user.isPremium && <Crown className="absolute -top-0.5 -right-0.5 w-3 h-3 text-amber-500" />}
               </Link>
             ) : (
-              <Link href={loginHref} className="bg-brand-600 text-white text-xs font-semibold py-1.5 px-3 rounded-lg active:scale-95 flex items-center gap-1">
+              <Link href={loginHref} className="bg-blue-600 text-white text-xs font-semibold py-1.5 px-3 rounded-lg active:scale-95 flex items-center gap-1">
                 <Sparkles className="w-3 h-3" /> Connexion
               </Link>
             )}
           </div>
         </div>
 
-        <div className="flex bg-vibe-dark/60 p-0.5 rounded-lg mb-2">
+        <div className="flex bg-slate-100 p-0.5 rounded-lg mb-2">
           <button
             onClick={() => setActiveTab('chat')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'chat' ? 'bg-brand-600 text-white shadow' : 'text-slate-400'}`}>
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'chat' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'}`}>
             Chat Local
           </button>
           <button
             onClick={() => setActiveTab('events')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'events' ? 'bg-brand-600 text-white shadow' : 'text-slate-400'}`}>
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'events' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'}`}>
             Events Flash
           </button>
         </div>
@@ -240,7 +240,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
             <div className="flex-1" />
 
             {chatLoading ? (
-              <div className="flex items-center justify-center py-8 text-brand-500 animate-pulse text-sm">Chargement...</div>
+              <div className="flex items-center justify-center py-8 text-blue-600 animate-pulse text-sm">Chargement...</div>
             ) : (
               messages.map((m) => {
                 const isMe = m.user_id === user?.id;
@@ -255,19 +255,19 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                 return (
                   <div key={m.id} className={`flex flex-col max-w-[80%] relative ${isMe ? 'self-end items-end' : 'self-start items-start'} ${m.isOptimistic ? 'opacity-60' : ''}`}>
                     <div className="flex items-center gap-1 mb-0.5 ml-1">
-                      <span className={`text-[10px] font-medium ${isMe ? 'text-brand-300' : 'text-slate-500'}`}>
+                      <span className={`text-[10px] font-medium ${isMe ? 'text-blue-600' : 'text-slate-500'}`}>
                         {isMe ? 'Vous' : m.username}
                       </span>
-                      {m.isOnSite && <span className="text-[8px] bg-brand-500/20 text-brand-300 px-1 py-0.5 rounded">📍</span>}
+                      {m.isOnSite && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded">📍</span>}
                     </div>
 
                     {activeMenu === m.id && (
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-vibe-dark/95 border border-brand-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl rounded-full px-3 py-1 flex items-center gap-3">
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white border border-slate-200 shadow-lg rounded-full px-3 py-1 flex items-center gap-3">
                         {['👍', '❤️', '😂', '🔥'].map(emoji => (
                           <button
                             key={emoji}
                             onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, emoji); setActiveMenu(null); }}
-                            className={`text-xl active:scale-90 ${myReactions.includes(emoji) ? 'scale-110' : ''}`}
+                            className={`text-xl active:scale-90 rounded-full px-1.5 py-0.5 border ${myReactions.includes(emoji) ? 'bg-blue-50 border-blue-200 text-blue-600 scale-110' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                           >{emoji}</button>
                         ))}
                       </div>
@@ -276,7 +276,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                     <div
                       onContextMenu={(e) => { e.preventDefault(); setActiveMenu(activeMenu === m.id ? null : m.id); }}
                       onClick={() => setActiveMenu(null)}
-                      className={`px-3 py-2 rounded-2xl relative select-none ${isMe ? 'bg-brand-600 text-white rounded-tr-sm' : 'bg-vibe-card border border-vibe-border text-white rounded-tl-sm'}`}>
+                      className={`px-3 py-2 rounded-2xl relative select-none ${isMe ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-900 rounded-tl-sm'}`}>
                       <p className="text-[13px] leading-relaxed pr-7">{m.content}</p>
                       <span className="absolute bottom-0.5 right-2 text-[9px] opacity-50">{formatMessageTime(m.created_at)}</span>
                     </div>
@@ -287,7 +287,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                           <button
                             key={emoji}
                             onClick={() => toggleReaction(m.id, emoji)}
-                            className={`flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${myReactions.includes(emoji) ? 'bg-brand-500/20 border-brand-500/40 text-brand-300' : 'bg-vibe-dark/50 border-vibe-border/50 text-slate-400'}`}
+                            className={`flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${myReactions.includes(emoji) ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                           >
                             <span className="text-xs">{emoji}</span>{(count as number) > 1 ? (count as number) : ''}
                           </button>
@@ -300,7 +300,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
             )}
 
             {!hasUnlockedArea && user && (
-              <div className="text-center text-[11px] text-orange-400 bg-orange-500/10 border border-orange-500/20 p-2 rounded-xl">
+              <div className="text-center text-[11px] text-orange-600 bg-orange-50 border border-orange-200 p-2 rounded-xl">
                 🔒 Scannez le QR Code du lieu pour participer au chat.
               </div>
             )}
@@ -316,9 +316,9 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
       {/* ── Input bar ── */}
       {activeTab === 'chat' && (
-        <div className="shrink-0 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-vibe-dark border-t border-vibe-border z-20">
+        <div className="shrink-0 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-slate-50 border-t border-slate-200 z-20">
           {!user ? (
-            <Link href={loginHref} className="w-full bg-brand-600 text-white font-semibold py-3 rounded-xl text-sm active:scale-[0.98] flex items-center justify-center gap-2">
+            <Link href={loginHref} className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl text-sm active:scale-[0.98] flex items-center justify-center gap-2">
               <Sparkles className="w-4 h-4" /> Connecte-toi pour participer
             </Link>
           ) : (
@@ -330,12 +330,12 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                 onFocus={scrollToBottom}
                 disabled={!hasUnlockedArea}
                 placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire."}
-                className={`w-full bg-vibe-card border border-vibe-border pl-4 pr-12 py-3 rounded-xl outline-none focus:border-brand-500 text-sm ${!hasUnlockedArea ? 'opacity-50' : ''}`}
+                className={`w-full bg-white border border-slate-200 pl-4 pr-12 py-3 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-900 placeholder:text-slate-400 ${!hasUnlockedArea ? 'opacity-50' : ''}`}
               />
               <button
                 type="submit"
                 disabled={!hasUnlockedArea || !newMessage.trim()}
-                className="absolute right-1.5 p-2 bg-brand-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg active:scale-90"
+                className="absolute right-1.5 p-2 bg-blue-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg active:scale-90"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -427,13 +427,13 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
     <div className="flex flex-col gap-3">
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : events.length === 0 ? (
         <div className="text-center py-8">
-          <Calendar className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">Aucun événement en cours.</p>
-          <p className="text-slate-600 text-xs mt-1">Soyez le premier à en créer un !</p>
+          <Calendar className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+          <p className="text-slate-400 text-sm">Aucun événement en cours.</p>
+          <p className="text-slate-400 text-xs mt-1">Soyez le premier à en créer un !</p>
         </div>
       ) : (
         events.map(ev => {
@@ -442,27 +442,27 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
           const isParticipant = participations.has(ev.id);
 
           return (
-            <div key={ev.id} className="bg-vibe-card border border-vibe-border p-3 rounded-xl flex items-center justify-between">
+            <div key={ev.id} className="bg-white border border-slate-200 shadow-sm p-3 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className={`p-2 rounded-lg ${isFull && !isParticipant ? 'bg-red-500/20' : 'bg-brand-500/20'}`}>
-                  <Calendar className={`w-5 h-5 ${isFull && !isParticipant ? 'text-red-400' : 'text-brand-400'}`} />
+                <div className={`p-2 rounded-lg ${isFull && !isParticipant ? 'bg-red-50' : 'bg-blue-50'}`}>
+                  <Calendar className={`w-5 h-5 ${isFull && !isParticipant ? 'text-red-500' : 'text-blue-600'}`} />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-sm text-white truncate">{ev.title}</h3>
-                  <p className="text-[11px] text-slate-400">{formatCountdown(ev.start_time)} · {ev.current_participants}/{ev.max_participants}</p>
+                  <h3 className="font-semibold text-sm text-slate-900 truncate">{ev.title}</h3>
+                  <p className="text-[11px] text-slate-500">{formatCountdown(ev.start_time)} · {ev.current_participants}/{ev.max_participants}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0 ml-2">
                 {isCreator ? (
                   <>
-                    <span className="text-[9px] text-brand-400 font-medium px-1.5 py-0.5 bg-brand-500/10 rounded">Votre event</span>
-                    <button onClick={() => handleDelete(ev.id)} className="p-1 bg-red-500/10 text-red-400 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <span className="text-[9px] text-blue-600 font-medium px-1.5 py-0.5 bg-blue-50 rounded">Votre event</span>
+                    <button onClick={() => handleDelete(ev.id)} className="p-1 bg-red-50 text-red-500 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                   </>
                 ) : isParticipant ? (
-                  <button onClick={() => handleLeave(ev.id)} className="bg-slate-700/50 text-slate-300 text-[11px] font-semibold py-1 px-2.5 rounded-lg active:scale-95 border border-slate-600">Quitter</button>
+                  <button onClick={() => handleLeave(ev.id)} className="bg-slate-100 text-slate-600 text-[11px] font-semibold py-1 px-2.5 rounded-lg active:scale-95 border border-slate-200">Quitter</button>
                 ) : !isFull ? (
-                  <button onClick={() => handleJoin(ev.id)} className="bg-vibe-accent text-white text-[11px] font-semibold py-1 px-2.5 rounded-lg active:scale-95">Rejoindre</button>
+                  <button onClick={() => handleJoin(ev.id)} className="bg-blue-600 text-white text-[11px] font-semibold py-1 px-2.5 rounded-lg active:scale-95">Rejoindre</button>
                 ) : (
                   <span className="text-[11px] text-red-400 font-medium">Complet</span>
                 )}
@@ -473,7 +473,7 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
       )}
 
       {writePermission && (
-        <Link href={`/event/create?venue_id=${venueId}&slug=${venueSlug}`} className="mt-1 border-2 border-dashed border-vibe-border active:border-brand-500 active:bg-brand-500/10 rounded-xl p-3 flex items-center justify-center gap-2 text-slate-400 active:text-white">
+        <Link href={`/event/create?venue_id=${venueId}&slug=${venueSlug}`} className="mt-1 border-2 border-dashed border-slate-300 active:border-blue-500 active:bg-blue-50 rounded-xl p-3 flex items-center justify-center gap-2 text-slate-500 active:text-blue-600">
           <Plus className="w-4 h-4" />
           <span className="text-sm font-medium">Créer un événement Flash</span>
         </Link>
