@@ -3,8 +3,13 @@ BEGIN;
 -- 0. CLEANUP (Drop tables and functions to allow rebuild)
 DROP EXTENSION IF EXISTS pg_cron CASCADE;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
+DROP TRIGGER IF EXISTS on_venue_scanned ON public.channel_subscriptions CASCADE;
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP FUNCTION IF EXISTS generate_random_username() CASCADE;
+DROP FUNCTION IF EXISTS public.update_venue_scan_stats() CASCADE;
+DROP FUNCTION IF EXISTS public.get_venues_in_bbox(float, float, float, float) CASCADE;
+DROP FUNCTION IF EXISTS public.get_venues_nearby(float, float, int) CASCADE;
+DROP VIEW IF EXISTS public.venues_with_coords CASCADE;
 
 DROP TABLE IF EXISTS public.push_subscriptions CASCADE;
 DROP TABLE IF EXISTS public.channel_subscriptions CASCADE;
@@ -12,6 +17,9 @@ DROP TABLE IF EXISTS public.messages CASCADE;
 DROP TABLE IF EXISTS public.events CASCADE;
 DROP TABLE IF EXISTS public.venues CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
+
+-- Enable PostGIS for geography queries (Supabase installs extensions in 'extensions' schema)
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions;
 
 -- 1. Profiles
 CREATE TABLE public.profiles (
@@ -26,17 +34,32 @@ CREATE TABLE public.profiles (
   created_at timestamp with time zone DEFAULT now()
 );
 
--- 2. Venues
+-- 2. Venues (PostGIS geography)
 CREATE TABLE public.venues (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text UNIQUE NOT NULL,
   name text NOT NULL,
   category text CHECK (category IN ('sport', 'cafe', 'bar', 'other')) NOT NULL,
-  lat numeric NOT NULL,
-  lng numeric NOT NULL,
+  city_slug text NOT NULL,
+  neighborhood text,
+  location geography(POINT) NOT NULL,
+  scans_count int DEFAULT 0,
+  last_activity_at timestamp with time zone DEFAULT now(),
   owner_id uuid REFERENCES public.profiles(id) DEFAULT NULL,
   created_at timestamp with time zone DEFAULT now()
 );
+
+CREATE INDEX idx_venues_location ON public.venues USING GIST(location);
+CREATE INDEX idx_venues_city_slug ON public.venues(city_slug);
+
+-- View exposing lat/lng from geography column for client-side consumption
+CREATE VIEW public.venues_with_coords AS
+SELECT
+  id, slug, name, category, city_slug, neighborhood,
+  scans_count, last_activity_at, owner_id, created_at,
+  ST_Y(location::geometry) AS lat,
+  ST_X(location::geometry) AS lng
+FROM public.venues;
 
 -- 3. Events
 CREATE TABLE public.events (
@@ -112,6 +135,64 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+
+-- TRIGGER: Increment scans_count on venue when a new scan (channel_subscription) is created
+CREATE OR REPLACE FUNCTION public.update_venue_scan_stats()
+RETURNS trigger AS $$
+BEGIN
+  UPDATE public.venues
+  SET scans_count = scans_count + 1,
+      last_activity_at = now()
+  WHERE id = NEW.venue_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_venue_scanned
+  AFTER INSERT ON public.channel_subscriptions
+  FOR EACH ROW EXECUTE FUNCTION public.update_venue_scan_stats();
+
+
+-- RPC: Find venues within a bounding box (for map viewport loading)
+CREATE OR REPLACE FUNCTION public.get_venues_in_bbox(
+  sw_lng float, sw_lat float, ne_lng float, ne_lat float
+)
+RETURNS TABLE(
+  id uuid, slug text, name text, category text,
+  city_slug text, neighborhood text,
+  scans_count int, lng float, lat float
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT v.id, v.slug, v.name, v.category,
+         v.city_slug, v.neighborhood, v.scans_count,
+         ST_X(v.location::geometry)::float AS lng,
+         ST_Y(v.location::geometry)::float AS lat
+  FROM public.venues v
+  WHERE v.location && ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326)::geography;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- RPC: Find venues within a radius of a point (for "spots around me")
+CREATE OR REPLACE FUNCTION public.get_venues_nearby(
+  user_lng float, user_lat float, radius_meters int DEFAULT 5000
+)
+RETURNS TABLE(
+  id uuid, slug text, name text, category text,
+  scans_count int, distance_m float, lng float, lat float
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT v.id, v.slug, v.name, v.category, v.scans_count,
+         ST_Distance(v.location, ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography)::float AS distance_m,
+         ST_X(v.location::geometry)::float AS lng,
+         ST_Y(v.location::geometry)::float AS lat
+  FROM public.venues v
+  WHERE ST_DWithin(v.location, ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography, radius_meters)
+  ORDER BY distance_m ASC;
+END;
+$$ LANGUAGE plpgsql STABLE;
 
 
 -- ROW LEVEL SECURITY (RLS)

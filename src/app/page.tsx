@@ -1,17 +1,21 @@
 "use client";
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ScanLine, MessageCircle, Crown, Zap, Calendar } from 'lucide-react';
+import { MapPin, ScanLine, MessageCircle, Crown, Zap, Calendar, Map as MapIcon, List } from 'lucide-react';
 import { InstallPrompt } from '@/components/InstallPrompt';
+
+const LazyMapView = lazy(() => import('@/modules/map/MapView'));
 
 interface Venue {
   id: string;
   slug: string;
   name: string;
   category: string;
+  city_slug: string;
+  neighborhood: string | null;
 }
 
 interface MyEvent {
@@ -44,14 +48,24 @@ export default function Home() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [myEvents, setMyEvents] = useState<MyEvent[]>([]);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [unlockedVenueIds, setUnlockedVenueIds] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('channel_subscriptions')
+      .select('venue_id')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (data) setUnlockedVenueIds(new Set(data.map(d => d.venue_id)));
+      });
+  }, [user]);
 
-
-  // Load venues on mount
   useEffect(() => {
     supabase
       .from('venues')
-      .select('id, slug, name, category')
+      .select('id, slug, name, category, city_slug, neighborhood')
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         if (data) setVenues(data);
@@ -59,7 +73,6 @@ export default function Home() {
       });
   }, []);
 
-  // Load user's events when user is available
   useEffect(() => {
     if (!user) return;
     supabase
@@ -91,10 +104,8 @@ export default function Home() {
 
   return (
     <main className="min-h-[100dvh] flex flex-col bg-vibe-dark relative">
-      {/* Decorative blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-brand-600 rounded-full mix-blend-screen filter blur-[120px] opacity-20 pointer-events-none" />
 
-      {/* Header Profile */}
       <header className="p-5 flex items-center justify-between sticky top-0 z-20 bg-vibe-dark/80 backdrop-blur-md border-b border-vibe-border">
         <h1 className="font-extrabold text-2xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">VIBE</h1>
         {user && (
@@ -159,41 +170,68 @@ export default function Home() {
           </button>
         </div>
 
-        {/* All Venues */}
+        {/* View Mode Toggle + Venues */}
         <div>
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-3 ml-2 flex items-center gap-2">
-            <MessageCircle className="w-3 h-3" /> Tous les lieux
-          </h2>
-          <div className="flex flex-col gap-2">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-between mb-3 ml-2 mr-2">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
+              <MessageCircle className="w-3 h-3" /> Tous les lieux
+            </h2>
+            <div className="flex bg-vibe-dark/80 border border-vibe-border rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode('map')}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'map' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'list' ? (
+            <div className="flex flex-col gap-2">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : venues.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-sm">Aucun lieu enregistré.</div>
+              ) : (
+                venues.map((v) => (
+                  <Link
+                    key={v.id}
+                    href={`/l/${v.slug}`}
+                    className="glass p-3.5 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-vibe-dark p-3 rounded-2xl border border-vibe-border relative flex items-center justify-center">
+                        <span className="text-lg">{CATEGORY_ICONS[v.category] || '📍'}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <h3 className="font-bold text-[14px] text-slate-200">{v.name}</h3>
+                        <p className="text-[11px] text-slate-500 capitalize">{v.neighborhood ? `${v.neighborhood} · ` : ''}{v.category}</p>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <Zap className="w-4 h-4 text-brand-500" />
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          ) : (
+            <Suspense fallback={
+              <div className="h-[60vh] rounded-2xl bg-vibe-card border border-vibe-border flex items-center justify-center">
                 <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
               </div>
-            ) : venues.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 text-sm">Aucun lieu enregistré.</div>
-            ) : (
-              venues.map((v) => (
-                <Link
-                  key={v.id}
-                  href={`/l/${v.slug}`}
-                  className="glass p-3.5 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-vibe-dark p-3 rounded-2xl border border-vibe-border relative flex items-center justify-center">
-                      <span className="text-lg">{CATEGORY_ICONS[v.category] || '📍'}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <h3 className="font-bold text-[14px] text-slate-200">{v.name}</h3>
-                      <p className="text-[11px] text-slate-500 capitalize">{v.category}</p>
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <Zap className="w-4 h-4 text-brand-500" />
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
+            }>
+              <LazyMapView className="h-[60vh]" unlockedVenueIds={unlockedVenueIds} />
+            </Suspense>
+          )}
         </div>
       </div>
       

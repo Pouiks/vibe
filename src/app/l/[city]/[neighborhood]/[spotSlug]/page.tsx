@@ -1,5 +1,5 @@
 "use client";
-import { use, useEffect, useState, useRef, MouseEvent } from 'react';
+import { use, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useGeofencing } from '@/modules/venue/useGeofencing';
 import { useRealtimeChat } from '@/modules/chat/useRealtimeChat';
@@ -25,30 +25,30 @@ interface Venue {
   slug: string;
   name: string;
   category: string;
+  city_slug: string;
+  neighborhood: string | null;
   lat: number;
   lng: number;
 }
 
-export default function VenuePage(props: { params: Promise<{ slug: string }> }) {
-  const params = use(props.params); 
-  const slug = params.slug;
+export default function VenuePage(props: { params: Promise<{ city: string; neighborhood: string; spotSlug: string }> }) {
+  const params = use(props.params);
+  const fullSlug = `${params.city}/${params.neighborhood}/${params.spotSlug}`;
   const searchParams = useSearchParams();
   const isScanned = searchParams?.get('scanned') === 'true';
 
-  // Dynamic venue fetch from Supabase
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueLoading, setVenueLoading] = useState(true);
   const [hasUnlockedArea, setHasUnlockedArea] = useState(false);
 
-  // Stores (must be before useEffects that depend on them)
   const user = useVibeStore((state) => state.user);
   const writePermission = useVibeStore((state) => state.writePermission);
 
   useEffect(() => {
     let isMounted = true;
-    supabase.from('venues')
-      .select('id, slug, name, category, lat, lng')
-      .eq('slug', slug)
+    supabase.from('venues_with_coords')
+      .select('id, slug, name, category, city_slug, neighborhood, lat, lng')
+      .eq('slug', fullSlug)
       .maybeSingle()
       .then(({ data }) => {
         if (isMounted) {
@@ -57,14 +57,12 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
         }
       });
     return () => { isMounted = false };
-  }, [slug]);
+  }, [fullSlug]);
 
-  // Check unlock status (persisted in Supabase channel_subscriptions)
   useEffect(() => {
     if (!venue || !user) return;
 
     if (isScanned) {
-      // Upsert to avoid duplicate key errors on re-scan
       supabase.from('channel_subscriptions')
         .upsert({ venue_id: venue.id, user_id: user.id }, { onConflict: 'user_id,venue_id' })
         .then(() => setHasUnlockedArea(true));
@@ -78,24 +76,20 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
     }
   }, [venue?.id, user?.id, isScanned]);
 
-  // Activer le Swipe PWA natif
   useSwipeBack();
 
-  // Local state
   const [activeTab, setActiveTab] = useState<'chat' | 'events'>('chat');
   const [newMessage, setNewMessage] = useState('');
   const [isFollowing, setIsFollowing] = useState(false);
   const [loadingSub, setLoadingSub] = useState(true);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   
-  // Stores and Hooks
-  const { messages, loading: chatLoading, onlineCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || slug);
+  const { messages, loading: chatLoading, onlineCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug);
   const { distance, error: geoError } = useGeofencing(venue?.lat, venue?.lng);
   const { toggleVenueSubscription } = usePushNotifications();
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Check subscription to channel
   useEffect(() => {
     if (!user || !venue) return;
     let isMounted = true;
@@ -155,10 +149,8 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
 
   return (
     <div className="flex flex-col h-[100dvh] bg-vibe-dark relative overflow-hidden">
-      {/* Background glow */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-brand-900 rounded-full mix-blend-screen filter blur-[100px] opacity-30"></div>
 
-      {/* Header */}
       <header className="glass p-4 sticky top-0 z-20 shadow-lg border-b-0 border-vibe-border rounded-b-2xl">
         <div className="flex items-center justify-between mb-3">
            <div className="flex items-center gap-2">
@@ -182,7 +174,6 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
            </div>
            
            <div className="flex items-center gap-3">
-             {/* Notification Toggle Button */}
              {!loadingSub && (
                <button onClick={toggleFollow} className={`p-2 rounded-full transition-colors ${isFollowing ? 'bg-brand-500/20 text-brand-400' : 'bg-vibe-dark/50 text-slate-500 hover:text-slate-300'}`}>
                  {isFollowing ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
@@ -196,7 +187,6 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
            </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex bg-vibe-dark/50 p-1 rounded-xl">
            <button 
             onClick={() => setActiveTab('chat')}
@@ -211,7 +201,6 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
         </div>
       </header>
 
-      {/* Content area */}
       <main className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 relative pb-20 z-10">
          {activeTab === 'chat' && (
            <>
@@ -221,7 +210,6 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
                  messages.map((m) => {
                     const isMe = m.user_id === user?.id;
                     
-                    // Strict safety: Enforce maximum 1 reaction per userId (takes the latest one)
                     const uniqueUserReactions = Object.values(
                        m.reactions?.reduce((acc, r) => {
                           acc[r.userId] = r;
@@ -243,7 +231,6 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
 
                     return (
                       <div key={m.id} className={`flex flex-col max-w-[85%] relative ${isMe ? 'self-end items-end' : 'self-start items-start'} ${m.isOptimistic ? 'opacity-70' : ''}`}>
-                         {/* Username */}
                          <div className="flex items-center gap-1 mb-0.5 ml-1">
                            <span className={`text-[10px] font-medium ${isMe ? 'text-brand-300' : 'text-slate-400'}`}>
                              {isMe ? 'Vous' : m.username}
@@ -255,7 +242,6 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
                            )}
                          </div>
                          
-                         {/* Reaction Menu */}
                          {activeMenu === m.id && (
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-vibe-dark/95 border border-brand-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl rounded-full px-3 py-1.5 flex items-center gap-3 animate-in fade-in zoom-in-75 duration-200">
                                {['👍', '❤️', '😂', '🔥'].map(emoji => (
@@ -280,7 +266,6 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
                             </span>
                          </div>
                          
-                         {/* Reaction Badges */}
                          {Object.keys(reactionsCount).length > 0 && (
                             <div className={`mt-1 flex gap-1 ${isMe ? 'self-end' : 'self-start'}`}>
                                {Object.entries(reactionsCount).map(([emoji, count]) => (
@@ -312,7 +297,6 @@ export default function VenuePage(props: { params: Promise<{ slug: string }> }) 
          )}
       </main>
 
-      {/* Chat Input (Sticky bottom) */}
       {activeTab === 'chat' && (
         <div className="absolute bottom-0 w-full p-4 bg-gradient-to-t from-vibe-dark via-vibe-dark to-transparent pt-12 pb-6 z-20">
           <form onSubmit={handleSend} className="relative flex items-center">
@@ -363,11 +347,10 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
   const [participations, setParticipations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Fetch upcoming events
     supabase.from('events')
       .select('id, title, start_time, max_participants, current_participants, creator_id')
       .eq('venue_id', venueId)
-      .gte('start_time', new Date(Date.now() - 3600000).toISOString()) // include events started < 1h ago
+      .gte('start_time', new Date(Date.now() - 3600000).toISOString())
       .order('start_time', { ascending: true })
       .then(({ data }) => {
         if (data) setEvents(data);
@@ -383,7 +366,6 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
         });
     }
 
-    // Subscribe to realtime
     const channel = supabase
       .channel(`events:venue_id=eq.${venueId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events', filter: `venue_id=eq.${venueId}` },
@@ -403,7 +385,6 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
 
   const handleJoin = async (eventId: string) => {
     if (!userId) return;
-    // Optimistic update
     setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: ev.current_participants + 1 } : ev));
     setParticipations(prev => { const n = new Set(prev); n.add(eventId); return n; });
     
@@ -412,7 +393,6 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
 
   const handleLeave = async (eventId: string) => {
     if (!userId) return;
-    // Optimistic update
     setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: Math.max(0, ev.current_participants - 1) } : ev));
     setParticipations(prev => { const n = new Set(prev); n.delete(eventId); return n; });
     
@@ -423,7 +403,6 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
     const confirm = window.confirm("Es-tu sûr de vouloir supprimer cet événement ?");
     if (!confirm) return;
     
-    // Optimistic update
     setEvents(prev => prev.filter(ev => ev.id !== eventId));
     await supabase.from('events').delete().eq('id', eventId);
   };
