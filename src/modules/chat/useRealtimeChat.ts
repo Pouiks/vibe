@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/core/supabase/client';
 import { useVibeStore } from '@/core/store/useVibeStore';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface ChatMessage {
   id: string;
   user_id: string;
@@ -23,9 +25,9 @@ export function useRealtimeChat(venueId: string) {
   const [onSiteCount, setOnSiteCount] = useState(0);
   const channelRef = useRef<any>(null);
 
-  // Fetch initial messages
+  // Fetch initial messages — only when we have a real UUID (not a slug)
   useEffect(() => {
-    if (!venueId || !venueId.includes('-')) return;
+    if (!venueId || !UUID_RE.test(venueId)) return;
     
     let isMounted = true;
     
@@ -155,9 +157,14 @@ export function useRealtimeChat(venueId: string) {
           });
         }
       )
-      .subscribe(async (status) => {
+      .subscribe(async (status, err) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({ is_present: useVibeStore.getState().writePermission, online_at: new Date().toISOString() });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] channel error', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime] subscription timed out, retrying…');
+          channel.subscribe();
         }
       });
 

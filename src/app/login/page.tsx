@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { Suspense, useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '@/core/supabase/client';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Mail, Sparkles, ArrowRight, ShieldCheck, AlertCircle, RotateCcw } from 'lucide-react';
@@ -60,7 +60,7 @@ function OtpInput({ value, onChange, onComplete, disabled }: {
   );
 }
 
-export default function LoginPage() {
+function LoginInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const hasError = searchParams?.get('error') === 'invalid_link';
@@ -256,5 +256,17 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginInner />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { createServerSupabase } from '@/core/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -10,9 +10,18 @@ if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   );
 }
 
+function getAdminSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');
+  }
+  return createClient(url, serviceKey, { auth: { persistSession: false } });
+}
+
 export async function POST(req: Request) {
   try {
-    const supabase = await createServerSupabase();
+    const admin = getAdminSupabase();
     const body = await req.json();
     const payload = body.record;
     
@@ -20,7 +29,7 @@ export async function POST(req: Request) {
        return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const { data: venue } = await supabase
+    const { data: venue } = await admin
       .from('venues')
       .select('slug, name')
       .eq('id', payload.venue_id)
@@ -29,7 +38,7 @@ export async function POST(req: Request) {
     const venueSlug = venue?.slug || '';
     const venueName = venue?.name || 'un lieu';
 
-    const { data: subscribers } = await supabase
+    const { data: subscribers } = await admin
       .from('channel_subscriptions')
       .select('user_id')
       .eq('venue_id', payload.venue_id);
@@ -38,12 +47,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: 'No subscribers' });
     }
 
-    const subscriberIds = subscribers.map(s => s.user_id);
+    const otherSubscribers = subscribers
+      .map(s => s.user_id)
+      .filter(uid => uid !== payload.user_id);
 
-    const { data: pushSettings } = await supabase
+    if (otherSubscribers.length === 0) {
+      return NextResponse.json({ success: true, message: 'No other subscribers' });
+    }
+
+    const { data: pushSettings } = await admin
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth, user_id')
-      .in('user_id', subscriberIds);
+      .in('user_id', otherSubscribers);
 
     if (!pushSettings || pushSettings.length === 0) {
       return NextResponse.json({ success: true, message: 'No push endpoints' });
@@ -70,7 +85,7 @@ export async function POST(req: Request) {
         await webpush.sendNotification(pushSubscription, notificationPayload);
       } catch (err: any) {
         if (err.statusCode === 404 || err.statusCode === 410) {
-          await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          await admin.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
         }
       }
     });

@@ -219,8 +219,21 @@ CREATE POLICY "Users can insert messages" ON public.messages FOR INSERT WITH CHE
 CREATE POLICY "Users manage own push subs" ON public.push_subscriptions USING (auth.uid() = user_id);
 CREATE POLICY "Users manage own channel subs" ON public.channel_subscriptions USING (auth.uid() = user_id);
 
--- ENABLE REALTIME
-DROP PUBLICATION IF EXISTS supabase_realtime CASCADE;
-CREATE PUBLICATION supabase_realtime FOR TABLE public.messages, public.events;
+-- ENABLE REALTIME (use ADD TABLE to avoid destroying Supabase's managed publication)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'events'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.events;
+  END IF;
+END $$;
 
 COMMIT;
