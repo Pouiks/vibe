@@ -1,5 +1,5 @@
 "use client";
-import { use, useEffect, useState, useRef } from 'react';
+import { use, useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useGeofencing } from '@/modules/venue/useGeofencing';
 import { useRealtimeChat } from '@/modules/chat/useRealtimeChat';
@@ -10,14 +10,34 @@ import { supabase } from '@/core/supabase/client';
 import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
+function useVisualViewport() {
+  const [height, setHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => setHeight(vv.height);
+    update();
+
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+
+  return height;
+}
 
 function formatMessageTime(dateStr: string) {
   const d = new Date(dateStr);
   const diffInMinutes = Math.floor((Date.now() - d.getTime()) / 60000);
   if (diffInMinutes < 15) {
-     return diffInMinutes === 0 ? "A l'instant" : `Il y a ${diffInMinutes} min`;
+    return diffInMinutes === 0 ? "A l'instant" : `Il y a ${diffInMinutes} min`;
   }
-  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute:'2-digit' });
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
 interface Venue {
@@ -83,12 +103,13 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   const [isFollowing, setIsFollowing] = useState(false);
   const [loadingSub, setLoadingSub] = useState(true);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  
+
   const { messages, loading: chatLoading, onlineCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug);
   const { distance, error: geoError } = useGeofencing(venue?.lat, venue?.lng);
   const { toggleVenueSubscription } = usePushNotifications();
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const vpHeight = useVisualViewport();
 
   useEffect(() => {
     if (!user || !venue) return;
@@ -98,11 +119,11 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
       .eq('user_id', user.id)
       .eq('venue_id', venue.id)
       .maybeSingle()
-      .then(({data}) => {
-         if (isMounted) {
-           setIsFollowing(!!data);
-           setLoadingSub(false);
-         }
+      .then(({ data }) => {
+        if (isMounted) {
+          setIsFollowing(!!data);
+          setLoadingSub(false);
+        }
       });
     return () => { isMounted = false };
   }, [user, venue]);
@@ -114,11 +135,11 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     if (success) setIsFollowing(newState);
   };
 
-  useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
+  const scrollToBottom = useCallback(() => {
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
+  }, []);
+
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +147,8 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     const sent = await sendMessage(newMessage);
     if (sent) setNewMessage('');
   };
+
+  const loginHref = `/login?returnUrl=${encodeURIComponent(`/l/${fullSlug}${isScanned ? '?scanned=true' : ''}`)}`;
 
   if (venueLoading) {
     return (
@@ -147,187 +170,172 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     );
   }
 
+  const containerStyle = vpHeight ? { height: `${vpHeight}px` } : { height: '100dvh' };
+
   return (
-    <div className="flex flex-col h-[100dvh] bg-vibe-dark relative">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-brand-900 rounded-full mix-blend-screen filter blur-[100px] opacity-30 pointer-events-none"></div>
+    <div style={containerStyle} className="fixed inset-x-0 top-0 flex flex-col bg-vibe-dark overflow-hidden">
 
-      <header className="glass p-4 shrink-0 z-20 shadow-lg border-b-0 border-vibe-border rounded-b-2xl">
-        <div className="flex items-center justify-between mb-3">
-           <div className="flex items-center gap-2">
-             <Link href="/" className="p-1.5 bg-vibe-dark/50 hover:bg-brand-500/20 rounded-xl transition-colors text-slate-300 hover:text-white">
-               <ArrowLeft className="w-5 h-5" />
-             </Link>
-             <div className="flex flex-col">
-               <h1 className="font-bold text-lg text-white drop-shadow-sm flex items-center gap-2">
-                 <MapPin className="w-4 h-4 text-brand-500" />
-                 {venue.name}
-               </h1>
-               <div className="flex items-center gap-2 text-xs">
-                  {writePermission ? (
-                     <span className="text-emerald-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sur place</span>
-                  ) : (
-                     <span className="text-orange-400 flex items-center gap-1"><Info className="w-2 h-2" /> Spectateur</span>
-                  )}
-                  <span className="text-brand-300">• {onlineCount} {onlineCount > 1 ? 'membres' : 'membre'} présent{onlineCount > 1 ? 's' : ''}*</span>
-               </div>
-             </div>
-           </div>
-           
-           <div className="flex items-center gap-3">
-             {user && !loadingSub && (
-               <button onClick={toggleFollow} className={`p-2 rounded-full transition-colors ${isFollowing ? 'bg-brand-500/20 text-brand-400' : 'bg-vibe-dark/50 text-slate-500 hover:text-slate-300'}`}>
-                 {isFollowing ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
-               </button>
-             )}
+      {/* ── Header ── */}
+      <header className="shrink-0 bg-vibe-dark/95 backdrop-blur-md border-b border-vibe-border z-20 px-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
+        <div className="flex items-center justify-between py-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Link href="/" className="shrink-0 p-1.5 -ml-1 text-slate-400 active:text-white">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div className="min-w-0">
+              <h1 className="font-bold text-base text-white truncate flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                {venue.name}
+              </h1>
+              <div className="flex items-center gap-1.5 text-[11px]">
+                {writePermission ? (
+                  <span className="text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sur place</span>
+                ) : (
+                  <span className="text-orange-400 flex items-center gap-1"><Info className="w-2.5 h-2.5" /> Spectateur</span>
+                )}
+                <span className="text-brand-300">· {onlineCount} en ligne</span>
+              </div>
+            </div>
+          </div>
 
-             {user ? (
-               <Link href="/profile" className="flex items-center justify-center w-9 h-9 rounded-full bg-brand-600 border border-brand-500/50 shadow-[0_0_10px_rgba(99,102,241,0.4)] transition-transform hover:scale-105 active:scale-95 text-white font-bold tracking-widest text-xs relative">
-                  {user.username.substring(0, 2).toUpperCase()}
-                  {user.isPremium && <Crown className="absolute -top-1 -right-1 w-3 h-3 text-vibe-accent drop-shadow-md" />}
-               </Link>
-             ) : (
-               <Link href={`/login?returnUrl=${encodeURIComponent(`/l/${fullSlug}${isScanned ? '?scanned=true' : ''}`)}`} className="bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold py-2 px-3 rounded-xl transition-all active:scale-95 flex items-center gap-1.5">
-                 <Sparkles className="w-3.5 h-3.5" /> Connexion
-               </Link>
-             )}
-           </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {user && !loadingSub && (
+              <button onClick={toggleFollow} className={`p-1.5 rounded-full ${isFollowing ? 'text-brand-400' : 'text-slate-500'}`}>
+                {isFollowing ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
+              </button>
+            )}
+            {user ? (
+              <Link href="/profile" className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-[11px] relative">
+                {user.username.substring(0, 2).toUpperCase()}
+                {user.isPremium && <Crown className="absolute -top-0.5 -right-0.5 w-3 h-3 text-vibe-accent" />}
+              </Link>
+            ) : (
+              <Link href={loginHref} className="bg-brand-600 text-white text-xs font-semibold py-1.5 px-3 rounded-lg active:scale-95 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Connexion
+              </Link>
+            )}
+          </div>
         </div>
 
-        <div className="flex bg-vibe-dark/50 p-1 rounded-xl">
-           <button 
+        <div className="flex bg-vibe-dark/60 p-0.5 rounded-lg mb-2">
+          <button
             onClick={() => setActiveTab('chat')}
-            className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-all ${activeTab === 'chat' ? 'bg-brand-600 shadow-md text-white' : 'text-slate-400 hover:text-white'}`}>
-             Chat Local
-           </button>
-           <button 
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'chat' ? 'bg-brand-600 text-white shadow' : 'text-slate-400'}`}>
+            Chat Local
+          </button>
+          <button
             onClick={() => setActiveTab('events')}
-            className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-all ${activeTab === 'events' ? 'bg-brand-600 shadow-md text-white' : 'text-slate-400 hover:text-white'}`}>
-             Events Flash
-           </button>
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'events' ? 'bg-brand-600 text-white shadow' : 'text-slate-400'}`}>
+            Events Flash
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3 z-10">
-         {activeTab === 'chat' && (
-           <>
-              {chatLoading ? (
-                 <div className="flex-1 flex items-center justify-center text-brand-500 animate-pulse">Chargement Vibes...</div>
-              ) : (
-                 messages.map((m) => {
-                    const isMe = m.user_id === user?.id;
-                    
-                    const uniqueUserReactions = Object.values(
-                       m.reactions?.reduce((acc, r) => {
-                          acc[r.userId] = r;
-                          return acc;
-                       }, {} as Record<string, any>) || {}
-                    );
-                    
-                    const reactionsCount = uniqueUserReactions.reduce((acc, r) => {
-                       acc[r.type] = (acc[r.type] || 0) + 1;
-                       return acc;
-                    }, {} as Record<string, number>);
-                    
-                    const myReactions = uniqueUserReactions.filter(r => r.userId === user?.id).map(r => r.type);
-                    
-                    const handleContextMenu = (e: React.MouseEvent | React.TouchEvent) => {
-                       e.preventDefault();
-                       setActiveMenu(activeMenu === m.id ? null : m.id);
-                    };
+      {/* ── Messages area ── */}
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2">
+        {activeTab === 'chat' && (
+          <div className="flex flex-col gap-2 min-h-full">
+            <div className="flex-1" />
 
-                    return (
-                      <div key={m.id} className={`flex flex-col max-w-[85%] relative ${isMe ? 'self-end items-end' : 'self-start items-start'} ${m.isOptimistic ? 'opacity-70' : ''}`}>
-                         <div className="flex items-center gap-1 mb-0.5 ml-1">
-                           <span className={`text-[10px] font-medium ${isMe ? 'text-brand-300' : 'text-slate-400'}`}>
-                             {isMe ? 'Vous' : m.username}
-                           </span>
-                           {m.isOnSite && (
-                             <span className="text-[8px] font-bold uppercase bg-brand-500/20 text-brand-300 px-1 py-0.5 rounded flex items-center gap-1">
-                               📍
-                             </span>
-                           )}
-                         </div>
-                         
-                         {activeMenu === m.id && (
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-vibe-dark/95 border border-brand-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl rounded-full px-3 py-1.5 flex items-center gap-3 animate-in fade-in zoom-in-75 duration-200">
-                               {['👍', '❤️', '😂', '🔥'].map(emoji => (
-                                 <button 
-                                   key={emoji}
-                                   onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, emoji); setActiveMenu(null); }}
-                                   className={`text-2xl hover:scale-125 transition-transform active:scale-90 ${myReactions.includes(emoji) ? 'scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : ''}`}
-                                 >
-                                   {emoji}
-                                 </button>
-                               ))}
-                            </div>
-                         )}
+            {chatLoading ? (
+              <div className="flex items-center justify-center py-8 text-brand-500 animate-pulse text-sm">Chargement...</div>
+            ) : (
+              messages.map((m) => {
+                const isMe = m.user_id === user?.id;
+                const uniqueUserReactions = Object.values(
+                  m.reactions?.reduce((acc, r) => { acc[r.userId] = r; return acc; }, {} as Record<string, any>) || {}
+                );
+                const reactionsCount = uniqueUserReactions.reduce((acc, r) => {
+                  acc[r.type] = (acc[r.type] || 0) + 1; return acc;
+                }, {} as Record<string, number>);
+                const myReactions = uniqueUserReactions.filter(r => r.userId === user?.id).map(r => r.type);
 
-                         <div 
-                           onContextMenu={handleContextMenu}
-                           onClick={() => setActiveMenu(null)}
-                           className={`p-3 rounded-2xl relative select-none cursor-pointer group ${isMe ? 'bg-brand-600 text-white rounded-tr-sm' : 'bg-vibe-card border border-vibe-border text-white rounded-tl-sm'}`}>
-                            <p className="text-sm leading-relaxed pr-8">{m.content}</p>
-                            <span className="absolute bottom-1 right-2 text-[9px] opacity-60">
-                               {formatMessageTime(m.created_at)}
-                            </span>
-                         </div>
-                         
-                         {Object.keys(reactionsCount).length > 0 && (
-                            <div className={`mt-1 flex gap-1 ${isMe ? 'self-end' : 'self-start'}`}>
-                               {Object.entries(reactionsCount).map(([emoji, count]) => (
-                                  <button 
-                                     key={emoji}
-                                     onClick={() => toggleReaction(m.id, emoji)}
-                                     className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${myReactions.includes(emoji) ? 'bg-brand-500/20 border-brand-500/40 text-brand-300' : 'bg-vibe-dark/50 border-vibe-border/50 text-slate-400'}`}
-                                  >
-                                      <span className="text-xs">{emoji}</span> {(count as number) > 1 ? (count as number) : ''}
-                                  </button>
-                               ))}
-                            </div>
-                         )}
+                return (
+                  <div key={m.id} className={`flex flex-col max-w-[80%] relative ${isMe ? 'self-end items-end' : 'self-start items-start'} ${m.isOptimistic ? 'opacity-60' : ''}`}>
+                    <div className="flex items-center gap-1 mb-0.5 ml-1">
+                      <span className={`text-[10px] font-medium ${isMe ? 'text-brand-300' : 'text-slate-500'}`}>
+                        {isMe ? 'Vous' : m.username}
+                      </span>
+                      {m.isOnSite && <span className="text-[8px] bg-brand-500/20 text-brand-300 px-1 py-0.5 rounded">📍</span>}
+                    </div>
+
+                    {activeMenu === m.id && (
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-vibe-dark/95 border border-brand-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl rounded-full px-3 py-1 flex items-center gap-3">
+                        {['👍', '❤️', '😂', '🔥'].map(emoji => (
+                          <button
+                            key={emoji}
+                            onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, emoji); setActiveMenu(null); }}
+                            className={`text-xl active:scale-90 ${myReactions.includes(emoji) ? 'scale-110' : ''}`}
+                          >{emoji}</button>
+                        ))}
                       </div>
-                    );
-                 })
-              )}
-              {(!hasUnlockedArea) && (
-                 <div className="text-center text-xs text-orange-400 border border-orange-500/20 bg-orange-500/10 p-2 rounded-xl mt-4">
-                  🔒 Ce chat est réservé à ceux qui ont déjà scanné le terrain.
-                 </div>
-              )}
-              <div ref={bottomRef} className="h-2" />
-           </>
-         )}
+                    )}
 
-         {activeTab === 'events' && (
-           <EventsTab venueId={venue.id} venueSlug={venue.slug} writePermission={writePermission} userId={user?.id} />
-         )}
+                    <div
+                      onContextMenu={(e) => { e.preventDefault(); setActiveMenu(activeMenu === m.id ? null : m.id); }}
+                      onClick={() => setActiveMenu(null)}
+                      className={`px-3 py-2 rounded-2xl relative select-none ${isMe ? 'bg-brand-600 text-white rounded-tr-sm' : 'bg-vibe-card border border-vibe-border text-white rounded-tl-sm'}`}>
+                      <p className="text-[13px] leading-relaxed pr-7">{m.content}</p>
+                      <span className="absolute bottom-0.5 right-2 text-[9px] opacity-50">{formatMessageTime(m.created_at)}</span>
+                    </div>
+
+                    {Object.keys(reactionsCount).length > 0 && (
+                      <div className={`mt-0.5 flex gap-1 ${isMe ? 'self-end' : 'self-start'}`}>
+                        {Object.entries(reactionsCount).map(([emoji, count]) => (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(m.id, emoji)}
+                            className={`flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${myReactions.includes(emoji) ? 'bg-brand-500/20 border-brand-500/40 text-brand-300' : 'bg-vibe-dark/50 border-vibe-border/50 text-slate-400'}`}
+                          >
+                            <span className="text-xs">{emoji}</span>{(count as number) > 1 ? (count as number) : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+
+            {!hasUnlockedArea && user && (
+              <div className="text-center text-[11px] text-orange-400 bg-orange-500/10 border border-orange-500/20 p-2 rounded-xl">
+                🔒 Scannez le QR Code du lieu pour participer au chat.
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+        )}
+
+        {activeTab === 'events' && (
+          <EventsTab venueId={venue.id} venueSlug={venue.slug} writePermission={writePermission} userId={user?.id} />
+        )}
       </main>
 
+      {/* ── Input bar ── */}
       {activeTab === 'chat' && (
-        <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-vibe-dark border-t border-vibe-border z-20">
+        <div className="shrink-0 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-vibe-dark border-t border-vibe-border z-20">
           {!user ? (
-            <Link
-              href={`/login?returnUrl=${encodeURIComponent(`/l/${fullSlug}${isScanned ? '?scanned=true' : ''}`)}`}
-              className="w-full bg-brand-600 hover:bg-brand-500 text-white font-semibold py-3.5 px-4 rounded-2xl text-center text-sm transition-all active:scale-95 shadow-[0_4px_20px_rgba(99,102,241,0.3)] flex items-center justify-center gap-2"
-            >
+            <Link href={loginHref} className="w-full bg-brand-600 text-white font-semibold py-3 rounded-xl text-sm active:scale-[0.98] flex items-center justify-center gap-2">
               <Sparkles className="w-4 h-4" /> Connecte-toi pour participer
             </Link>
           ) : (
             <form onSubmit={handleSend} className="relative flex items-center">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
+                onFocus={scrollToBottom}
                 disabled={!hasUnlockedArea}
-                placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire ici."}
-                className={`w-full glass pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-500 transition-colors text-sm ${!hasUnlockedArea ? 'opacity-50 cursor-not-allowed' : ''}`}
+                placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire."}
+                className={`w-full bg-vibe-card border border-vibe-border pl-4 pr-12 py-3 rounded-xl outline-none focus:border-brand-500 text-sm ${!hasUnlockedArea ? 'opacity-50' : ''}`}
               />
-              <button 
+              <button
                 type="submit"
                 disabled={!hasUnlockedArea || !newMessage.trim()}
-                className="absolute right-2 p-2 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-700 disabled:text-slate-400 text-white rounded-xl transition-all active:scale-90"
+                className="absolute right-1.5 p-2 bg-brand-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg active:scale-90"
               >
-                 <Send className="w-4 h-4" />
+                <Send className="w-4 h-4" />
               </button>
             </form>
           )}
@@ -337,7 +345,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   );
 }
 
-// ── Events Tab Component ──────────────────────────────────────
+// ── Events Tab Component ──
 interface EventItem {
   id: string;
   title: string;
@@ -384,15 +392,9 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
     const channel = supabase
       .channel(`events:venue_id=eq.${venueId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events', filter: `venue_id=eq.${venueId}` },
-        (payload) => {
-          setEvents(prev => [...prev, payload.new as EventItem]);
-        }
-      )
+        (payload) => setEvents(prev => [...prev, payload.new as EventItem]))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'events', filter: `venue_id=eq.${venueId}` },
-        (payload) => {
-          setEvents(prev => prev.map(ev => ev.id === (payload.new as EventItem).id ? payload.new as EventItem : ev));
-        }
-      )
+        (payload) => setEvents(prev => prev.map(ev => ev.id === (payload.new as EventItem).id ? payload.new as EventItem : ev)))
       .subscribe();
 
     return () => { supabase.removeChannel(channel) };
@@ -402,7 +404,6 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
     if (!userId) return;
     setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: ev.current_participants + 1 } : ev));
     setParticipations(prev => { const n = new Set(prev); n.add(eventId); return n; });
-    
     await supabase.from('event_participants').insert({ event_id: eventId, user_id: userId });
   };
 
@@ -410,23 +411,21 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
     if (!userId) return;
     setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: Math.max(0, ev.current_participants - 1) } : ev));
     setParticipations(prev => { const n = new Set(prev); n.delete(eventId); return n; });
-    
     await supabase.from('event_participants').delete().match({ event_id: eventId, user_id: userId });
   };
 
   const handleDelete = async (eventId: string) => {
     const confirm = window.confirm("Es-tu sûr de vouloir supprimer cet événement ?");
     if (!confirm) return;
-    
     setEvents(prev => prev.filter(ev => ev.id !== eventId));
     await supabase.from('events').delete().eq('id', eventId);
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : events.length === 0 ? (
         <div className="text-center py-8">
@@ -439,52 +438,31 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
           const isFull = ev.current_participants >= ev.max_participants;
           const isCreator = ev.creator_id === userId;
           const isParticipant = participations.has(ev.id);
-          
+
           return (
-            <div key={ev.id} className="glass p-4 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${isFull && !isParticipant ? 'bg-red-500/20' : 'bg-brand-500/20'}`}>
-                  <Calendar className={`w-6 h-6 ${isFull && !isParticipant ? 'text-red-400' : 'text-brand-400'}`} />
+            <div key={ev.id} className="bg-vibe-card border border-vibe-border p-3 rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`p-2 rounded-lg ${isFull && !isParticipant ? 'bg-red-500/20' : 'bg-brand-500/20'}`}>
+                  <Calendar className={`w-5 h-5 ${isFull && !isParticipant ? 'text-red-400' : 'text-brand-400'}`} />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-sm text-white">{ev.title}</h3>
-                  <p className="text-xs text-slate-400">
-                    {formatCountdown(ev.start_time)} • {ev.current_participants}/{ev.max_participants} inscrits
-                  </p>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm text-white truncate">{ev.title}</h3>
+                  <p className="text-[11px] text-slate-400">{formatCountdown(ev.start_time)} · {ev.current_participants}/{ev.max_participants}</p>
                 </div>
               </div>
-              
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
                 {isCreator ? (
-                   <>
-                     <span className="text-[10px] text-brand-400 font-medium px-2 py-1 bg-brand-500/10 rounded-md">Votre event</span>
-                     <button 
-                       onClick={() => handleDelete(ev.id)}
-                       className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
-                       title="Supprimer l'événement">
-                       <Trash2 className="w-4 h-4" />
-                     </button>
-                   </>
+                  <>
+                    <span className="text-[9px] text-brand-400 font-medium px-1.5 py-0.5 bg-brand-500/10 rounded">Votre event</span>
+                    <button onClick={() => handleDelete(ev.id)} className="p-1 bg-red-500/10 text-red-400 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </>
+                ) : isParticipant ? (
+                  <button onClick={() => handleLeave(ev.id)} className="bg-slate-700/50 text-slate-300 text-[11px] font-semibold py-1 px-2.5 rounded-lg active:scale-95 border border-slate-600">Quitter</button>
+                ) : !isFull ? (
+                  <button onClick={() => handleJoin(ev.id)} className="bg-vibe-accent text-white text-[11px] font-semibold py-1 px-2.5 rounded-lg active:scale-95">Rejoindre</button>
                 ) : (
-                   isParticipant ? (
-                     <button 
-                       onClick={() => handleLeave(ev.id)}
-                       className="bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-1.5 px-3 rounded-lg transition-all active:scale-95 border border-slate-600"
-                     >
-                       Quitter
-                     </button>
-                   ) : (
-                     !isFull ? (
-                       <button 
-                         onClick={() => handleJoin(ev.id)}
-                         className="bg-vibe-accent hover:bg-vibe-accent/80 text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-all active:scale-95"
-                       >
-                         Rejoindre
-                       </button>
-                     ) : (
-                       <span className="text-xs text-red-400 font-medium">Complet</span>
-                     )
-                   )
+                  <span className="text-[11px] text-red-400 font-medium">Complet</span>
                 )}
               </div>
             </div>
@@ -493,11 +471,9 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
       )}
 
       {writePermission && (
-        <Link href={`/event/create?venue_id=${venueId}&slug=${venueSlug}`} className="mt-2 border-2 border-dashed border-vibe-border hover:border-brand-500 hover:bg-brand-500/10 transition-all rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 group cursor-pointer">
-           <div className="bg-vibe-dark p-2 rounded-full group-hover:bg-brand-500 group-hover:text-white transition-colors text-slate-400">
-              <Plus className="w-5 h-5" />
-           </div>
-           <p className="text-sm font-medium text-slate-300">Créer un événement Flash</p>
+        <Link href={`/event/create?venue_id=${venueId}&slug=${venueSlug}`} className="mt-1 border-2 border-dashed border-vibe-border active:border-brand-500 active:bg-brand-500/10 rounded-xl p-3 flex items-center justify-center gap-2 text-slate-400 active:text-white">
+          <Plus className="w-4 h-4" />
+          <span className="text-sm font-medium">Créer un événement Flash</span>
         </Link>
       )}
     </div>
