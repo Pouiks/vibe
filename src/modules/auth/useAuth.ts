@@ -3,12 +3,18 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/core/supabase/client';
 import { useVibeStore } from '@/core/store/useVibeStore';
 
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise as Promise<T>,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]);
+}
+
 async function loadProfile(userId: string): Promise<ReturnType<typeof useVibeStore.getState>['user']> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
+  const { data: profile } = await withTimeout(
+    supabase.from('profiles').select('*').eq('id', userId).single(),
+    5000,
+  );
 
   if (!profile) return null;
 
@@ -28,22 +34,26 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   const hydrateUser = useCallback(async (userId: string) => {
-    let user = await loadProfile(userId);
-
-    if (!user) {
-      await new Promise((r) => setTimeout(r, 1500));
-      user = await loadProfile(userId);
+    try {
+      let user = await loadProfile(userId);
+      if (!user) {
+        await new Promise((r) => setTimeout(r, 1500));
+        user = await loadProfile(userId);
+      }
+      setUser(user);
+    } catch {
+      // Profile load failed — proceed without user data
     }
-
-    setUser(user);
   }, [setUser]);
 
   useEffect(() => {
     const init = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await hydrateUser(user.id);
+        // getSession() reads cookies locally — instant, no network call.
+        // getUser() makes a network request that can hang on mobile Safari.
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await hydrateUser(session.user.id);
         }
       } catch {
         // No valid session

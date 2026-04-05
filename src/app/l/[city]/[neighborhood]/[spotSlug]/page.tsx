@@ -66,22 +66,28 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
   useEffect(() => {
     let isMounted = true;
-    const ctrl = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
 
-    fetch(`/api/venues/by-slug?slug=${encodeURIComponent(fullSlug)}`, { signal: ctrl.signal })
-      .then(r => r.json())
-      .then(data => {
-        if (isMounted) {
-          setVenue(data?.id ? data : null);
-          setVenueLoading(false);
-        }
-      })
-      .catch(err => {
-        if (err.name !== 'AbortError') console.error('[Venue fetch]', err);
+    (async () => {
+      // Hard timeout: never spin more than 8 s
+      timer = setTimeout(() => { if (isMounted) setVenueLoading(false); }, 8000);
+
+      try {
+        const { data, error } = await supabase.from('venues_with_coords')
+          .select('id, slug, name, category, city_slug, neighborhood, lat, lng')
+          .eq('slug', fullSlug)
+          .maybeSingle();
+        if (error) console.error('[Venue fetch]', error);
+        if (isMounted) { setVenue(data); setVenueLoading(false); }
+      } catch (err) {
+        console.error('[Venue fetch] network error', err);
         if (isMounted) setVenueLoading(false);
-      });
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
 
-    return () => { isMounted = false; ctrl.abort(); };
+    return () => { isMounted = false; clearTimeout(timer); };
   }, [fullSlug]);
 
   useEffect(() => {

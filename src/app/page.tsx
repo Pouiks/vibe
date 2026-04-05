@@ -53,17 +53,21 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from('channel_subscriptions')
-      .select('venue_id')
-      .eq('user_id', user.id)
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('channel_subscriptions')
+          .select('venue_id')
+          .eq('user_id', user.id);
         if (data) setUnlockedVenueIds(new Set(data.map(d => d.venue_id)));
-      });
+      } catch { /* silently fail for non-critical data */ }
+    })();
   }, [user]);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
     (async () => {
+      timer = setTimeout(() => setLoading(false), 8000);
       try {
         const { data } = await supabase
           .from('venues')
@@ -73,29 +77,33 @@ export default function Home() {
       } catch (err) {
         console.error('[Venues fetch]', err);
       } finally {
+        clearTimeout(timer);
         setLoading(false);
       }
     })();
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from('event_participants')
-      .select(`
-        event_id,
-        created_at,
-        events!inner (
-          id, title, start_time, current_participants, max_participants,
-          venues (slug, name, category)
-        )
-      `)
-      .eq('user_id', user.id)
-      .gte('events.start_time', new Date(Date.now() - 3600 * 1000).toISOString())
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('event_participants')
+          .select(`
+            event_id,
+            created_at,
+            events!inner (
+              id, title, start_time, current_participants, max_participants,
+              venues (slug, name, category)
+            )
+          `)
+          .eq('user_id', user.id)
+          .gte('events.start_time', new Date(Date.now() - 3600 * 1000).toISOString())
+          .order('created_at', { ascending: false });
         if (data) setMyEvents(data as any);
-      });
+      } catch { /* non-critical */ }
+    })();
   }, [user]);
 
   function formatCountdown(startTime: string) {
