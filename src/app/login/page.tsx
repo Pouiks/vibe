@@ -54,7 +54,7 @@ function OtpInput({ value, onChange, onComplete, disabled }: {
         value={value}
         onChange={(e) => handleChange(e.target.value)}
         disabled={disabled}
-        className="absolute inset-0 w-full h-full opacity-0 text-lg"
+        className="absolute inset-0 w-full h-full text-transparent caret-transparent bg-transparent text-lg"
         aria-label="Code de vérification"
       />
     </div>
@@ -146,7 +146,7 @@ export default function LoginPage() {
 
           <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Entre ton code</h1>
           <p className="text-slate-500 text-sm leading-relaxed mb-6">
-            Un code à 6 chiffres a été envoyé à <span className="text-blue-600 font-semibold">{email}</span>
+            Un code à 8 chiffres a été envoyé à <span className="text-blue-600 font-semibold">{email}</span>
           </p>
 
           <OtpInput
