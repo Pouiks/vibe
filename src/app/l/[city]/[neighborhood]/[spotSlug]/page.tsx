@@ -7,7 +7,7 @@ import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2, Sparkles } from 'lucide-react';
+import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2, Sparkles, LogOut } from 'lucide-react';
 import Link from 'next/link';
 
 function useVisualViewport() {
@@ -138,6 +138,20 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     if (success) setIsFollowing(newState);
   };
 
+  const leaveSpot = async () => {
+    if (!venue || !user) return;
+    const confirmed = window.confirm('Quitter ce spot ? Tu ne pourras plus écrire dans le chat tant que tu n\'auras pas re-scanné le QR code.');
+    if (!confirmed) return;
+
+    await supabase.from('channel_subscriptions')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('venue_id', venue.id);
+
+    setHasUnlockedArea(false);
+    setIsFollowing(false);
+  };
+
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
   }, []);
@@ -204,7 +218,12 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {user && hasUnlockedArea && (
+              <button onClick={leaveSpot} className="p-1.5 rounded-full text-slate-400 active:text-red-500" title="Quitter le spot">
+                <LogOut className="w-4.5 h-4.5" />
+              </button>
+            )}
             {user && !loadingSub && (
               <button onClick={toggleFollow} className={`p-1.5 rounded-full ${isFollowing ? 'text-blue-600' : 'text-slate-400'}`}>
                 {isFollowing ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
