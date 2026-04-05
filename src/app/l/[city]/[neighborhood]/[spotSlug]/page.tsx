@@ -148,10 +148,10 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-vibe-dark relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-brand-900 rounded-full mix-blend-screen filter blur-[100px] opacity-30"></div>
+    <div className="flex flex-col h-[100dvh] bg-vibe-dark relative">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-brand-900 rounded-full mix-blend-screen filter blur-[100px] opacity-30 pointer-events-none"></div>
 
-      <header className="glass p-4 sticky top-0 z-20 shadow-lg border-b-0 border-vibe-border rounded-b-2xl">
+      <header className="glass p-4 shrink-0 z-20 shadow-lg border-b-0 border-vibe-border rounded-b-2xl">
         <div className="flex items-center justify-between mb-3">
            <div className="flex items-center gap-2">
              <Link href="/" className="p-1.5 bg-vibe-dark/50 hover:bg-brand-500/20 rounded-xl transition-colors text-slate-300 hover:text-white">
@@ -207,7 +207,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 relative pb-20 z-10">
+      <main className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3 z-10">
          {activeTab === 'chat' && (
            <>
               {chatLoading ? (
@@ -304,11 +304,11 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
       </main>
 
       {activeTab === 'chat' && (
-        <div className="absolute bottom-0 w-full p-4 bg-gradient-to-t from-vibe-dark via-vibe-dark to-transparent pt-12 pb-6 z-20">
+        <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-vibe-dark border-t border-vibe-border z-20">
           {!user ? (
             <Link
               href={`/login?returnUrl=${encodeURIComponent(`/l/${fullSlug}${isScanned ? '?scanned=true' : ''}`)}`}
-              className="block w-full bg-brand-600 hover:bg-brand-500 text-white font-semibold py-3.5 px-4 rounded-2xl text-center text-sm transition-all active:scale-95 shadow-[0_4px_20px_rgba(99,102,241,0.3)] flex items-center justify-center gap-2"
+              className="w-full bg-brand-600 hover:bg-brand-500 text-white font-semibold py-3.5 px-4 rounded-2xl text-center text-sm transition-all active:scale-95 shadow-[0_4px_20px_rgba(99,102,241,0.3)] flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" /> Connecte-toi pour participer
             </Link>
@@ -320,7 +320,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                 onChange={(e) => setNewMessage(e.target.value)}
                 disabled={!hasUnlockedArea}
                 placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire ici."}
-                className={`w-full glass pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-500 transition-colors text-sm shadow-[0_4px_20px_rgba(0,0,0,0.3)] ${!hasUnlockedArea ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full glass pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-500 transition-colors text-sm ${!hasUnlockedArea ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
               <button 
                 type="submit"
