@@ -21,8 +21,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    // On passe le returnUrl dans le lien de redirection de l'email pour restaurer la navigation
-    const redirectUrl = new URL('/auth/confirm', window.location.origin);
+    const redirectUrl = new URL('/auth/callback', window.location.origin);
     redirectUrl.searchParams.set('returnUrl', returnUrl);
 
     const { error: authError } = await supabase.auth.signInWithOtp({

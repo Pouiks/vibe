@@ -13,22 +13,37 @@ export default function ConfirmPage() {
     handled.current = true;
 
     const returnUrl = searchParams?.get('returnUrl') || '/';
+    const code = searchParams?.get('code');
+
+    const resolve = (hasSession: boolean) => {
+      if (hasSession) {
+        router.replace(returnUrl);
+      } else {
+        router.replace('/login?error=invalid_link');
+      }
+    };
+
+    if (code) {
+      supabase.auth
+        .exchangeCodeForSession(code)
+        .then(({ data, error }) => {
+          resolve(!!data.session && !error);
+        })
+        .catch(() => resolve(false));
+      return;
+    }
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (event === 'SIGNED_IN' && session) {
-          router.replace(returnUrl);
+          resolve(true);
         }
       }
     );
 
     const timeout = setTimeout(async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        router.replace(returnUrl);
-      } else {
-        router.replace('/login?error=invalid_link');
-      }
+      resolve(!!user);
     }, 3000);
 
     return () => {
