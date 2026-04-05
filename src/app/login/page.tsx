@@ -25,19 +25,17 @@ function OtpInput({ value, onChange, onComplete, disabled }: {
   };
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div
-        className="flex gap-2 justify-center cursor-text"
-        onClick={() => inputRef.current?.focus()}
-      >
+    <div className="relative w-full max-w-[320px] mx-auto">
+      {/* Visual boxes rendered behind the real input */}
+      <div className="flex gap-1.5 justify-center pointer-events-none" aria-hidden="true">
         {Array.from({ length: OTP_LENGTH }).map((_, i) => (
           <div
             key={i}
-            className={`w-11 h-14 rounded-xl border-2 flex items-center justify-center text-xl font-bold transition-all ${
+            className={`w-9 h-12 rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all ${
               i < value.length
                 ? 'border-blue-600 bg-blue-50 text-blue-700'
                 : i === value.length
-                ? 'border-blue-400 bg-white text-slate-900 animate-pulse'
+                ? 'border-blue-400 bg-white text-slate-900'
                 : 'border-slate-200 bg-white text-slate-300'
             }`}
           >
@@ -46,15 +44,17 @@ function OtpInput({ value, onChange, onComplete, disabled }: {
         ))}
       </div>
 
+      {/* Real input overlaid on top — visible to iOS for autofill */}
       <input
         ref={inputRef}
         type="text"
         inputMode="numeric"
         autoComplete="one-time-code"
+        pattern="[0-9]*"
         value={value}
         onChange={(e) => handleChange(e.target.value)}
         disabled={disabled}
-        className="sr-only"
+        className="absolute inset-0 w-full h-full opacity-0 text-lg"
         aria-label="Code de vérification"
       />
     </div>
