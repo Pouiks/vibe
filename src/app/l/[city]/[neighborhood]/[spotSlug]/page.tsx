@@ -11,13 +11,13 @@ import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell
 import Link from 'next/link';
 
 function useVisualViewport() {
-  const [height, setHeight] = useState<number | undefined>(undefined);
+  const [rect, setRect] = useState<{ height: number; offsetTop: number } | null>(null);
 
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
 
-    const update = () => setHeight(vv.height);
+    const update = () => setRect({ height: vv.height, offsetTop: vv.offsetTop });
     update();
 
     vv.addEventListener('resize', update);
@@ -28,7 +28,7 @@ function useVisualViewport() {
     };
   }, []);
 
-  return height;
+  return rect;
 }
 
 function formatMessageTime(dateStr: string) {
@@ -109,7 +109,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   const { toggleVenueSubscription } = usePushNotifications();
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const vpHeight = useVisualViewport();
+  const vp = useVisualViewport();
 
   useEffect(() => {
     if (!user || !venue) return;
@@ -170,10 +170,12 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     );
   }
 
-  const containerStyle = vpHeight ? { height: `${vpHeight}px` } : { height: '100dvh' };
+  const containerStyle = vp
+    ? { height: `${vp.height}px`, top: `${vp.offsetTop}px` }
+    : { height: '100dvh', top: '0px' };
 
   return (
-    <div style={containerStyle} className="fixed inset-x-0 top-0 flex flex-col bg-vibe-dark overflow-hidden">
+    <div style={containerStyle} className="fixed inset-x-0 flex flex-col bg-vibe-dark overflow-hidden">
 
       {/* ── Header ── */}
       <header className="shrink-0 bg-vibe-dark/95 backdrop-blur-md border-b border-vibe-border z-20 px-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
