@@ -66,16 +66,22 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
   useEffect(() => {
     let isMounted = true;
-    supabase.from('venues_with_coords')
-      .select('id, slug, name, category, city_slug, neighborhood, lat, lng')
-      .eq('slug', fullSlug)
-      .maybeSingle()
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('venues_with_coords')
+          .select('id, slug, name, category, city_slug, neighborhood, lat, lng')
+          .eq('slug', fullSlug)
+          .maybeSingle();
+        if (error) console.error('[Venue fetch]', error);
         if (isMounted) {
           setVenue(data);
           setVenueLoading(false);
         }
-      });
+      } catch (err) {
+        console.error('[Venue fetch] network error', err);
+        if (isMounted) setVenueLoading(false);
+      }
+    })();
     return () => { isMounted = false };
   }, [fullSlug]);
 
