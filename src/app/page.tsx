@@ -63,14 +63,19 @@ export default function Home() {
   }, [user]);
 
   useEffect(() => {
-    supabase
-      .from('venues')
-      .select('id, slug, name, category, city_slug, neighborhood')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('venues')
+          .select('id, slug, name, category, city_slug, neighborhood')
+          .order('created_at', { ascending: false });
         if (data) setVenues(data);
+      } catch (err) {
+        console.error('[Venues fetch]', err);
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   useEffect(() => {

@@ -4,7 +4,7 @@ import { useVibeStore } from '@/core/store/useVibeStore';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-const PUBLIC_ROUTES = ['/login', '/auth/confirm', '/l/'];
+const PUBLIC_ROUTES = ['/', '/login', '/auth/confirm', '/l/'];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { loading } = useAuth();
