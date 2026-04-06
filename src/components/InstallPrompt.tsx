@@ -20,10 +20,14 @@ export function InstallPrompt({ context = "home" }: InstallPromptProps) {
     const isPwa = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone;
     setIsStandalone(!!isPwa);
 
-    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    const chromeIOS = navigator.userAgent.includes("CriOS");
+    const ua = navigator.userAgent;
+    const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    // Any iOS browser that is NOT Safari (CriOS=Chrome, FxiOS=Firefox, EdgiOS=Edge, OPiOS=Opera, Ecosia, Brave…)
+    const nonSafariIOS = iOS && (
+      /CriOS|FxiOS|EdgiOS|OPiOS|Ecosia|Brave|DuckDuckGo|GSA/i.test(ua)
+    );
     setIsIOS(iOS);
-    setIsChromeIOS(chromeIOS);
+    setIsChromeIOS(nonSafariIOS);
 
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
@@ -91,7 +95,7 @@ export function InstallPrompt({ context = "home" }: InstallPromptProps) {
             {isChromeIOS ? (
               <div className="bg-orange-50 rounded-xl p-2.5 text-[11px] font-medium text-orange-700 border border-orange-200">
                 <Compass className="inline w-3 h-3 mr-1 -mt-0.5" />
-                Apple bloque l'installation via Chrome. Ouvre ce lien dans <strong>Safari</strong>.
+                Sur iPhone, ouvre ce lien dans <strong>Safari</strong> pour pouvoir installer l'app.
               </div>
             ) : isIOS ? (
               <div className="bg-blue-50 rounded-xl p-2.5 text-[11px] font-medium text-blue-700 border border-blue-200 space-y-1">
