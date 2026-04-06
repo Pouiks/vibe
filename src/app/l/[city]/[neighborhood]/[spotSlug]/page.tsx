@@ -97,9 +97,10 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     if (isScanned) {
       supabase.from('channel_subscriptions')
         .upsert({ venue_id: venue.id, user_id: user.id }, { onConflict: 'user_id,venue_id' })
-        .then(() => {
+        .then(async () => {
           setHasUnlockedArea(true);
-          subscribeToPush();
+          const result = await subscribeToPush();
+          if (result === 'denied') setShowNotifGuide(true);
         });
     } else {
       supabase.from('channel_subscriptions')
@@ -118,6 +119,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   const [isMuted, setIsMuted] = useState(false);
   const [loadingSub, setLoadingSub] = useState(true);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [showNotifGuide, setShowNotifGuide] = useState(false);
 
   const { messages, loading: chatLoading, onlineCount, onSiteCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug);
   const { distance, error: geoError } = useGeofencing(venue?.lat, venue?.lng);
@@ -348,6 +350,18 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
           <EventsTab venueId={venue.id} venueSlug={venue.slug} writePermission={writePermission} userId={user?.id} />
         )}
       </main>
+
+      {/* ── Notification denied guide ── */}
+      {showNotifGuide && (
+        <div className="shrink-0 mx-3 my-1.5 bg-amber-50 border border-amber-200 rounded-xl p-3 relative">
+          <button onClick={() => setShowNotifGuide(false)} className="absolute top-2 right-2 text-amber-400 hover:text-amber-600 text-xs">✕</button>
+          <p className="text-[12px] font-semibold text-amber-800 mb-1">🔔 Notifications bloquées</p>
+          <p className="text-[11px] text-amber-700 leading-relaxed">
+            Pour recevoir les messages de ce spot, active les notifications dans tes <strong>Réglages</strong> :
+            Réglages → VibeSpot → Notifications → Autoriser.
+          </p>
+        </div>
+      )}
 
       {/* ── Install prompt (venue context) ── */}
       <InstallPrompt context="venue" />

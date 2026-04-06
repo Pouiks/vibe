@@ -32,16 +32,19 @@ export function usePushNotifications() {
     }
   }, []);
 
-  const subscribeToPush = async () => {
-    if (!isSupported || !user) return false;
+  const subscribeToPush = async (): Promise<'granted' | 'denied' | 'unsupported' | 'error'> => {
+    if (!isSupported || !user) return 'unsupported';
 
     try {
-      // iOS Safari requires an explicit permission request before pushManager.subscribe
-      if ('Notification' in window && Notification.permission === 'default') {
+      if ('Notification' in window) {
+        // Always attempt to request — if already denied the browser returns 'denied' instantly
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return false;
-      } else if ('Notification' in window && Notification.permission === 'denied') {
-        return false;
+        if (permission === 'denied') {
+          return 'denied';
+        }
+        if (permission !== 'granted') {
+          return 'denied';
+        }
       }
 
       const registration = await navigator.serviceWorker.ready;
@@ -49,7 +52,7 @@ export function usePushNotifications() {
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
         console.error("VAPID public key not found in environment");
-        return false;
+        return 'error';
       }
       const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
 
@@ -70,10 +73,10 @@ export function usePushNotifications() {
       if (error) throw error;
 
       setIsSubscribed(true);
-      return true;
+      return 'granted';
     } catch (err) {
       console.error('Failed to subscribe to push notifications', err);
-      return false;
+      return 'error';
     }
   };
 
@@ -98,8 +101,8 @@ export function usePushNotifications() {
     if (!user) return false;
     
     if (isFollowing) {
-      const globalSub = await subscribeToPush();
-      if (!globalSub) return false;
+      const result = await subscribeToPush();
+      if (result !== 'granted') return false;
     }
 
     try {
