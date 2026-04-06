@@ -115,13 +115,13 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
   const [activeTab, setActiveTab] = useState<'chat' | 'events'>('chat');
   const [newMessage, setNewMessage] = useState('');
-  const [isFollowing, setIsFollowing] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [loadingSub, setLoadingSub] = useState(true);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   const { messages, loading: chatLoading, onlineCount, onSiteCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug);
   const { distance, error: geoError } = useGeofencing(venue?.lat, venue?.lng);
-  const { toggleVenueSubscription, subscribeToPush } = usePushNotifications();
+  const { subscribeToPush, toggleMute } = usePushNotifications();
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const vp = useVisualViewport();
@@ -130,24 +130,24 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     if (!user || !venue) return;
     let isMounted = true;
     supabase.from('channel_subscriptions')
-      .select('venue_id')
+      .select('venue_id, muted')
       .eq('user_id', user.id)
       .eq('venue_id', venue.id)
       .maybeSingle()
       .then(({ data }) => {
         if (isMounted) {
-          setIsFollowing(!!data);
+          setIsMuted(!!data?.muted);
           setLoadingSub(false);
         }
       });
     return () => { isMounted = false };
   }, [user, venue]);
 
-  const toggleFollow = async () => {
+  const handleToggleMute = async () => {
     if (!venue) return;
-    const newState = !isFollowing;
-    const success = await toggleVenueSubscription(venue.id, newState);
-    if (success) setIsFollowing(newState);
+    const newMuted = !isMuted;
+    const success = await toggleMute(venue.id, newMuted);
+    if (success) setIsMuted(newMuted);
   };
 
   const leaveSpot = async () => {
@@ -161,7 +161,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
       .eq('venue_id', venue.id);
 
     setHasUnlockedArea(false);
-    setIsFollowing(false);
+    setIsMuted(false);
   };
 
   const scrollToBottom = useCallback(() => {
@@ -236,9 +236,9 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                 <LogOut className="w-4.5 h-4.5" />
               </button>
             )}
-            {user && !loadingSub && (
-              <button onClick={toggleFollow} className={`p-1.5 rounded-full ${isFollowing ? 'text-blue-600' : 'text-slate-400'}`}>
-                {isFollowing ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
+            {user && hasUnlockedArea && !loadingSub && (
+              <button onClick={handleToggleMute} className={`p-1.5 rounded-full ${isMuted ? 'text-slate-400' : 'text-blue-600'}`} title={isMuted ? 'Réactiver les notifications' : 'Couper les notifications'}>
+                {isMuted ? <BellOff className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
               </button>
             )}
             {user ? (

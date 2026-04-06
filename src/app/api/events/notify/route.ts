@@ -2,26 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
-);
+function getAdminSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');
+  }
+  return createClient(url, serviceKey, { auth: { persistSession: false } });
+}
 
-webpush.setVapidDetails(
-  'mailto:contact@vibe.app',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:contact@vibe.app',
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const admin = getAdminSupabase();
     const { event_id } = await request.json();
     if (!event_id) {
       return NextResponse.json({ error: 'Missing event_id' }, { status: 400 });
     }
 
-    // 1. Fetch event details + venue info
-    const { data: event, error: eventError } = await supabaseAdmin
+    const { data: event, error: eventError } = await admin
       .from('events')
       .select(`
         id, title, start_time, max_participants, creator_id,
@@ -40,7 +46,6 @@ export async function POST(request: NextRequest) {
     const venueSlug = venue?.slug || '';
     const venueId = venue?.id;
 
-    // 2. Format time
     const startTime = new Date(event.start_time);
     const diffMs = startTime.getTime() - Date.now();
     const diffMin = Math.max(0, Math.floor(diffMs / 60000));
@@ -49,12 +54,13 @@ export async function POST(request: NextRequest) {
     else if (diffMin < 60) timeLabel = `Dans ${diffMin} min`;
     else timeLabel = `Dans ${Math.floor(diffMin / 60)}h${(diffMin % 60) > 0 ? String(diffMin % 60).padStart(2, '0') : ''}`;
 
-    // 3. Get all members of the venue (channel_subscriptions), except the creator
-    const { data: subscribers } = await supabaseAdmin
+    // Exclude creator + muted users
+    const { data: subscribers } = await admin
       .from('channel_subscriptions')
       .select('user_id')
       .eq('venue_id', venueId)
-      .neq('user_id', event.creator_id);
+      .neq('user_id', event.creator_id)
+      .neq('muted', true);
 
     if (!subscribers || subscribers.length === 0) {
       return NextResponse.json({ sent: 0, message: 'No subscribers' });
@@ -62,8 +68,7 @@ export async function POST(request: NextRequest) {
 
     const userIds = subscribers.map(s => s.user_id);
 
-    // 4. Get their push subscriptions
-    const { data: pushSubs } = await supabaseAdmin
+    const { data: pushSubs } = await admin
       .from('push_subscriptions')
       .select('endpoint, auth, p256dh')
       .in('user_id', userIds);
@@ -72,16 +77,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ sent: 0, message: 'No push subscriptions' });
     }
 
-    // 5. Build the notification payload
     const payload = JSON.stringify({
-      title: `Nouvel évent à ${venueName} !`,
-      body: `🔥 ${event.title} — ${timeLabel} (${event.max_participants} places)`,
-      data: {
-        url: `/l/${venueSlug}?tab=events`
-      }
+      title: `🔥 Nouvel évent à ${venueName}`,
+      body: `${event.title} — ${timeLabel} (${event.max_participants} places)`,
+      data: { url: `/l/${venueSlug}?tab=events` }
     });
 
-    // 6. Send push notifications in parallel
     const results = await Promise.allSettled(
       pushSubs.map(sub =>
         webpush.sendNotification(
@@ -94,13 +95,12 @@ export async function POST(request: NextRequest) {
     const sent = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
 
-    // Clean up expired/invalid subscriptions
     const failedSubs = results
       .map((r, i) => r.status === 'rejected' ? pushSubs[i].endpoint : null)
       .filter(Boolean);
 
     if (failedSubs.length > 0) {
-      await supabaseAdmin
+      await admin
         .from('push_subscriptions')
         .delete()
         .in('endpoint', failedSubs);

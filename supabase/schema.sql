@@ -98,6 +98,8 @@ CREATE TABLE public.push_subscriptions (
 CREATE TABLE public.channel_subscriptions (
   user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
   venue_id uuid REFERENCES public.venues(id) ON DELETE CASCADE,
+  muted boolean DEFAULT false,
+  last_notified_at timestamptz DEFAULT NULL,
   created_at timestamp with time zone DEFAULT now(),
   PRIMARY KEY (user_id, venue_id)
 );

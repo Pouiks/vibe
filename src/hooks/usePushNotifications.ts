@@ -26,7 +26,6 @@ export function usePushNotifications() {
   useEffect(() => {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true);
-      // Register service worker if not already
       navigator.serviceWorker.register('/sw.js').catch(err => {
          console.error('Service Worker registration failed:', err);
       });
@@ -53,7 +52,6 @@ export function usePushNotifications() {
 
       const subJSON = subscription.toJSON();
 
-      // Send to DB
       const { error } = await supabase.from('push_subscriptions').upsert({
         user_id: user.id,
         endpoint: subJSON.endpoint,
@@ -77,9 +75,7 @@ export function usePushNotifications() {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
-        // Delete from DB first
         await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint);
-        // Unsubscribe locally
         await subscription.unsubscribe();
       }
       setIsSubscribed(false);
@@ -93,7 +89,6 @@ export function usePushNotifications() {
   const toggleVenueSubscription = async (venue_id: string, isFollowing: boolean) => {
     if (!user) return false;
     
-    // Ensure the browser itself is subscribed to push globally
     if (isFollowing) {
       const globalSub = await subscribeToPush();
       if (!globalSub) return false;
@@ -118,11 +113,29 @@ export function usePushNotifications() {
     }
   };
 
+  /** Toggle mute on a venue subscription (keeps subscription, just silences push) */
+  const toggleMute = async (venueId: string, muted: boolean): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      const { error } = await supabase
+        .from('channel_subscriptions')
+        .update({ muted })
+        .eq('user_id', user.id)
+        .eq('venue_id', venueId);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('toggleMute error', e);
+      return false;
+    }
+  };
+
   return { 
     isSupported, 
     isSubscribed, 
     subscribeToPush, 
     unsubscribeFromPush,
-    toggleVenueSubscription
+    toggleVenueSubscription,
+    toggleMute
   };
 }
