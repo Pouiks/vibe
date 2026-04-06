@@ -9,6 +9,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/core/supabase/client';
 import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2, Sparkles, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { InstallPrompt } from '@/components/InstallPrompt';
 
 function useVisualViewport() {
   const [rect, setRect] = useState<{ height: number; offsetTop: number } | null>(null);
@@ -347,6 +348,9 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
           <EventsTab venueId={venue.id} venueSlug={venue.slug} writePermission={writePermission} userId={user?.id} />
         )}
       </main>
+
+      {/* ── Install prompt (venue context) ── */}
+      <InstallPrompt context="venue" />
 
       {/* ── Input bar ── */}
       {activeTab === 'chat' && (
