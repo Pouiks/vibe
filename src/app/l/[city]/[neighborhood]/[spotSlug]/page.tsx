@@ -368,14 +368,14 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                 onFocus={scrollToBottom}
                 disabled={!hasUnlockedArea}
                 placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire."}
-                className={`w-full bg-white border border-slate-200 pl-4 pr-12 py-3 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-900 placeholder:text-slate-400 ${!hasUnlockedArea ? 'opacity-50' : ''}`}
+                className={`w-full bg-white border border-slate-200 pl-4 pr-14 py-3 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-900 placeholder:text-slate-400 ${!hasUnlockedArea ? 'opacity-50' : ''}`}
               />
               <button
                 type="submit"
                 disabled={!hasUnlockedArea || !newMessage.trim()}
-                className="absolute right-1.5 p-2 bg-blue-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg active:scale-90"
+                className="absolute right-1 p-3 bg-blue-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl active:scale-90"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-5 h-5" />
               </button>
             </form>
           )}

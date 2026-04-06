@@ -36,6 +36,14 @@ export function usePushNotifications() {
     if (!isSupported || !user) return false;
 
     try {
+      // iOS Safari requires an explicit permission request before pushManager.subscribe
+      if ('Notification' in window && Notification.permission === 'default') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return false;
+      } else if ('Notification' in window && Notification.permission === 'denied') {
+        return false;
+      }
+
       const registration = await navigator.serviceWorker.ready;
       
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
