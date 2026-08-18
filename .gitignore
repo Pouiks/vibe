@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# generated QR posters (contain per-venue scan tokens — never commit)
+/qr-output/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
