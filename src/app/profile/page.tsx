@@ -7,12 +7,12 @@ import { supabase } from '@/core/supabase/client';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuth } from '@/modules/auth/useAuth';
-import { Crown, MapPin, Map as MapIcon, ArrowLeft, Save, BellOff, LogOut, Check } from 'lucide-react';
+import { Crown, ArrowLeft, Save, BellOff, LogOut, Check, Download, Trash2 } from 'lucide-react';
 
 export default function ProfilePage() {
   const user = useVibeStore((state) => state.user);
   const updateUserProfile = useVibeStore((state) => state.updateUserProfile);
-  const { unsubscribeFromPush, isSubscribed } = usePushNotifications();
+  const { unsubscribeFromPush } = usePushNotifications();
   const { signOut } = useAuth();
   const router = useRouter();
   useSwipeBack();
@@ -30,9 +30,35 @@ export default function ProfilePage() {
     });
   }, []);
 
-  const handleChange = (e: any) => setFormData({...formData, [e.target.name]: e.target.value});
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setFormData({...formData, [e.target.name]: e.target.value});
 
   const [isSaved, setIsSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "Supprimer définitivement ton compte ?\n\nTous tes messages, tes events, tes adhésions aux spots et tes données seront effacés immédiatement. Cette action est irréversible."
+    );
+    if (!confirmed) return;
+    const typed = window.prompt('Pour confirmer, tape SUPPRIMER en majuscules :');
+    if (typed !== 'SUPPRIMER') return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' });
+      if (!res.ok) {
+        alert('Erreur lors de la suppression. Réessaie ou contacte-nous.');
+        setDeleting(false);
+        return;
+      }
+      await signOut();
+      router.replace('/');
+    } catch {
+      alert('Erreur réseau. Réessaie.');
+      setDeleting(false);
+    }
+  };
 
   const hasChanges = 
     formData.firstName !== (user?.firstName || '') ||
@@ -159,15 +185,39 @@ export default function ProfilePage() {
               >
                 <BellOff className="w-4 h-4" /> Désactiver les notifications
               </button>
-              <button 
+              <button
                 onClick={async () => {
                    await signOut();
                    router.replace('/login');
-                }} 
+                }}
                 className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-500 py-2.5 rounded-xl text-sm font-medium transition-colors"
               >
                 <LogOut className="w-4 h-4" /> Se déconnecter
               </button>
+           </div>
+        </div>
+
+        {/* Mes données (RGPD) */}
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5">
+           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4 ml-1">Mes données</h2>
+           <div className="flex flex-col gap-3">
+              <a
+                href="/api/account/export"
+                download
+                className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-600 py-2.5 rounded-xl text-sm font-medium transition-colors active:scale-[0.98]"
+              >
+                <Download className="w-4 h-4" /> Télécharger mes données
+              </a>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-500 py-2.5 rounded-xl text-sm font-medium transition-colors active:scale-[0.98] disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" /> {deleting ? 'Suppression…' : 'Supprimer mon compte'}
+              </button>
+              <Link href="/confidentialite" className="text-center text-[11px] text-slate-400 underline underline-offset-2 pt-1">
+                Politique de confidentialité
+              </Link>
            </div>
         </div>
 

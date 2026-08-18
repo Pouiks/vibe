@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/core/supabase/client';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Mail, Sparkles, ArrowRight, ShieldCheck, AlertCircle, RotateCcw } from 'lucide-react';
@@ -180,7 +181,7 @@ export default function LoginClient() {
               onClick={() => { setStep('email'); setOtp(''); setError(''); }}
               className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
             >
-              Changer d'email
+              Changer d&apos;email
             </button>
           </div>
         </div>
@@ -250,7 +251,9 @@ export default function LoginClient() {
 
         <p className="text-[10px] text-slate-400 text-center mt-5 leading-relaxed">
           Un pseudo fun te sera attribué automatiquement.<br />
-          Ton email reste invisible pour les autres utilisateurs.
+          Ton email reste invisible pour les autres utilisateurs.<br />
+          En te connectant, tu acceptes notre{' '}
+          <Link href="/confidentialite" className="underline underline-offset-2">politique de confidentialité</Link>.
         </p>
       </div>
     </div>
