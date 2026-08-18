@@ -1,13 +1,15 @@
 "use client";
 import { use, useEffect, useState, useRef, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useGeofencing } from '@/modules/venue/useGeofencing';
 import { useRealtimeChat } from '@/modules/chat/useRealtimeChat';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2, Sparkles, LogOut } from 'lucide-react';
+import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2, Sparkles, LogOut, MessageCircle } from 'lucide-react';
+import { formatEventTiming, formatDuration } from '@/core/datetime';
+import { track } from '@/core/analytics';
 import Link from 'next/link';
 import { InstallPrompt } from '@/components/InstallPrompt';
 
@@ -48,6 +50,7 @@ interface Venue {
   category: string;
   city_slug: string;
   neighborhood: string | null;
+  photo_url: string | null;
   lat: number;
   lng: number;
 }
@@ -56,11 +59,16 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   const params = use(props.params);
   const fullSlug = `${params.city}/${params.neighborhood}/${params.spotSlug}`;
   const searchParams = useSearchParams();
-  const isScanned = searchParams?.get('scanned') === 'true';
+  const router = useRouter();
+  // Le QR code physique encode /l/<slug>?t=<scan_token> : le token est validé
+  // côté serveur par la RPC join_spot, seule porte d'entrée dans le spot.
+  const scanToken = searchParams?.get('t');
 
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueLoading, setVenueLoading] = useState(true);
   const [hasUnlockedArea, setHasUnlockedArea] = useState(false);
+  const [joinError, setJoinError] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   const user = useVibeStore((state) => state.user);
   const writePermission = useVibeStore((state) => state.writePermission);
@@ -75,7 +83,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
       try {
         const { data, error } = await supabase.from('venues_with_coords')
-          .select('id, slug, name, category, city_slug, neighborhood, lat, lng')
+          .select('id, slug, name, category, city_slug, neighborhood, photo_url, lat, lng')
           .eq('slug', fullSlug)
           .maybeSingle();
         if (error) console.error('[Venue fetch]', error);
@@ -91,16 +99,45 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     return () => { isMounted = false; clearTimeout(timer); };
   }, [fullSlug]);
 
+  // Entonnoir du scan : une visite venue du QR (avec token) est comptée une
+  // fois, connecté ou non — c'est la métrique d'efficacité de l'affiche.
+  const qrVisitTracked = useRef(false);
   useEffect(() => {
-    if (!venue || !user) return;
+    if (!venue || !scanToken || qrVisitTracked.current) return;
+    qrVisitTracked.current = true;
+    track('qr_visit', { venueId: venue.id, userId: user?.id });
+  }, [venue?.id, scanToken]);
 
-    if (isScanned) {
-      supabase.from('channel_subscriptions')
-        .upsert({ venue_id: venue.id, user_id: user.id }, { onConflict: 'user_id,venue_id' })
-        .then(async () => {
-          setHasUnlockedArea(true);
-          const result = await subscribeToPush();
-          if (result === 'denied') setShowNotifGuide(true);
+  useEffect(() => {
+    if (!venue) return;
+    if (!user) { setCheckingAccess(false); return; }
+
+    if (scanToken) {
+      supabase.rpc('join_spot', { p_slug: venue.slug, p_token: scanToken })
+        .then(async ({ error }) => {
+          if (!error) {
+            setHasUnlockedArea(true);
+            setJoinError(false);
+            setCheckingAccess(false);
+            track('scan_success', { venueId: venue.id, userId: user.id });
+            router.replace(`/l/${fullSlug}`);
+            const result = await subscribeToPush();
+            if (result === 'denied') setShowNotifGuide(true);
+            return;
+          }
+          console.error('[join_spot]', error.message);
+          // Token invalide ou RPC en échec : ne pas verrouiller un membre déjà inscrit.
+          const { data } = await supabase.from('channel_subscriptions')
+            .select('venue_id')
+            .match({ venue_id: venue.id, user_id: user.id })
+            .maybeSingle();
+          if (data) {
+            setHasUnlockedArea(true);
+            router.replace(`/l/${fullSlug}`);
+          } else {
+            setJoinError(true);
+          }
+          setCheckingAccess(false);
         });
     } else {
       supabase.from('channel_subscriptions')
@@ -108,21 +145,23 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
         .match({ venue_id: venue.id, user_id: user.id })
         .then((res) => {
           if (res.data && res.data.length > 0) setHasUnlockedArea(true);
+          setCheckingAccess(false);
         });
     }
-  }, [venue?.id, user?.id, isScanned]);
+  }, [venue?.id, user?.id, scanToken]);
 
   useSwipeBack();
 
   const [activeTab, setActiveTab] = useState<'chat' | 'events'>('chat');
+  const [eventChat, setEventChat] = useState<{ id: string; title: string } | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [loadingSub, setLoadingSub] = useState(true);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [showNotifGuide, setShowNotifGuide] = useState(false);
 
-  const { messages, loading: chatLoading, onlineCount, onSiteCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug);
-  const { distance, error: geoError } = useGeofencing(venue?.lat, venue?.lng);
+  const { messages, loading: chatLoading, onlineCount, onSiteCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug, eventChat?.id ?? null);
+  useGeofencing(venue?.lat, venue?.lng);
   const { subscribeToPush, toggleMute } = usePushNotifications();
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -164,6 +203,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
     setHasUnlockedArea(false);
     setIsMuted(false);
+    setEventChat(null);
   };
 
   const scrollToBottom = useCallback(() => {
@@ -179,7 +219,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     if (sent) setNewMessage('');
   };
 
-  const loginHref = `/login?returnUrl=${encodeURIComponent(`/l/${fullSlug}${isScanned ? '?scanned=true' : ''}`)}`;
+  const loginHref = `/login?returnUrl=${encodeURIComponent(`/l/${fullSlug}${scanToken ? `?t=${scanToken}` : ''}`)}`;
 
   if (venueLoading) {
     return (
@@ -196,7 +236,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
         <ShieldAlert className="w-12 h-12 text-red-500 mb-4" />
         <h1 className="text-xl font-bold">Lieu introuvable</h1>
         <p className="text-slate-500 mb-6">Ce QR Code ne semble rattaché à aucun lieu existant.</p>
-        <Link href="/" className="bg-blue-600 px-4 py-2 rounded-xl text-white font-medium text-sm">Retour à l'accueil</Link>
+        <Link href="/" className="bg-blue-600 px-4 py-2 rounded-xl text-white font-medium text-sm">Retour à l&apos;accueil</Link>
       </div>
     );
   }
@@ -272,8 +312,45 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
       {/* ── Messages area ── */}
       <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2">
-        {activeTab === 'chat' && (
+        {activeTab === 'chat' && (checkingAccess ? (
+          <div className="flex items-center justify-center h-full py-16">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : !hasUnlockedArea ? (
+          <div className="flex flex-col items-center justify-center h-full py-16 px-6 text-center gap-3">
+            {venue.photo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={venue.photo_url} alt={venue.name} className="w-full max-w-[280px] h-36 object-cover rounded-2xl border border-slate-200 shadow-sm" />
+            )}
+            <div className="bg-blue-50 p-4 rounded-full text-3xl">🔒</div>
+            <h2 className="font-bold text-slate-900">Chat réservé aux personnes sur place</h2>
+            <p className="text-slate-500 text-sm leading-relaxed max-w-[280px]">
+              Scanne le QR code affiché sur place pour découvrir ce qui s&apos;y passe et participer.
+            </p>
+            {onlineCount > 0 && (
+              <p className="text-blue-600 text-xs font-semibold">{onlineCount} personne{onlineCount > 1 ? 's' : ''} en ligne en ce moment</p>
+            )}
+            {joinError && (
+              <p className="text-red-600 text-[11px] bg-red-50 border border-red-200 p-2 rounded-xl">
+                ⚠️ QR Code invalide ou expiré. Rescanne le QR Code affiché sur place.
+              </p>
+            )}
+            {!user && (
+              <Link href={loginHref} className="mt-2 bg-blue-600 text-white text-sm font-semibold py-2.5 px-5 rounded-xl active:scale-95 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" /> Connexion
+              </Link>
+            )}
+          </div>
+        ) : (
           <div className="flex flex-col gap-2 min-h-full">
+            {eventChat && (
+              <div className="sticky top-0 z-10 bg-blue-50 border border-blue-200 rounded-xl p-2.5 flex items-center justify-between">
+                <span className="text-xs font-semibold text-blue-700 truncate">💬 {eventChat.title}</span>
+                <button onClick={() => setEventChat(null)} className="text-[11px] text-blue-600 font-medium shrink-0 ml-2 active:opacity-70">
+                  ← Chat du lieu
+                </button>
+              </div>
+            )}
             <div className="flex-1" />
 
             {chatLoading ? (
@@ -282,7 +359,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
               messages.map((m) => {
                 const isMe = m.user_id === user?.id;
                 const uniqueUserReactions = Object.values(
-                  m.reactions?.reduce((acc, r) => { acc[r.userId] = r; return acc; }, {} as Record<string, any>) || {}
+                  m.reactions?.reduce((acc, r) => { acc[r.userId] = r; return acc; }, {} as Record<string, { type: string; userId: string }>) || {}
                 );
                 const reactionsCount = uniqueUserReactions.reduce((acc, r) => {
                   acc[r.type] = (acc[r.type] || 0) + 1; return acc;
@@ -311,7 +388,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                     )}
 
                     <div
-                      onContextMenu={(e) => { e.preventDefault(); setActiveMenu(activeMenu === m.id ? null : m.id); }}
+                      onContextMenu={(e) => { e.preventDefault(); if (hasUnlockedArea) setActiveMenu(activeMenu === m.id ? null : m.id); }}
                       onClick={() => setActiveMenu(null)}
                       className={`px-3 py-2 rounded-2xl relative select-none ${isMe ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-900 rounded-tl-sm'}`}>
                       <p className="text-[13px] leading-relaxed pr-7">{m.content}</p>
@@ -323,7 +400,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                         {Object.entries(reactionsCount).map(([emoji, count]) => (
                           <button
                             key={emoji}
-                            onClick={() => toggleReaction(m.id, emoji)}
+                            onClick={() => hasUnlockedArea && toggleReaction(m.id, emoji)}
                             className={`flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${myReactions.includes(emoji) ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                           >
                             <span className="text-xs">{emoji}</span>{(count as number) > 1 ? (count as number) : ''}
@@ -336,18 +413,18 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
               })
             )}
 
-            {!hasUnlockedArea && user && (
-              <div className="text-center text-[11px] text-orange-600 bg-orange-50 border border-orange-200 p-2 rounded-xl">
-                🔒 Scannez le QR Code du lieu pour participer au chat.
-              </div>
-            )}
-
             <div ref={bottomRef} />
           </div>
-        )}
+        ))}
 
         {activeTab === 'events' && (
-          <EventsTab venueId={venue.id} venueSlug={venue.slug} writePermission={writePermission} userId={user?.id} />
+          <EventsTab
+            venueId={venue.id}
+            venueSlug={venue.slug}
+            isMember={hasUnlockedArea}
+            userId={user?.id}
+            onOpenChat={(ev) => { setEventChat({ id: ev.id, title: ev.title }); setActiveTab('chat'); }}
+          />
         )}
       </main>
 
@@ -367,32 +444,25 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
       <InstallPrompt context="venue" />
 
       {/* ── Input bar ── */}
-      {activeTab === 'chat' && (
+      {activeTab === 'chat' && user && hasUnlockedArea && (
         <div className="shrink-0 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-slate-50 border-t border-slate-200 z-20">
-          {!user ? (
-            <Link href={loginHref} className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl text-sm active:scale-[0.98] flex items-center justify-center gap-2">
-              <Sparkles className="w-4 h-4" /> Connecte-toi pour participer
-            </Link>
-          ) : (
-            <form onSubmit={handleSend} className="relative flex items-center">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onFocus={scrollToBottom}
-                disabled={!hasUnlockedArea}
-                placeholder={hasUnlockedArea ? "Envoyer une vibe..." : "🔒 Scannez le QR Code pour écrire."}
-                className={`w-full bg-white border border-slate-200 pl-4 pr-14 py-3 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-900 placeholder:text-slate-400 ${!hasUnlockedArea ? 'opacity-50' : ''}`}
-              />
-              <button
-                type="submit"
-                disabled={!hasUnlockedArea || !newMessage.trim()}
-                className="absolute right-1 p-3 bg-blue-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl active:scale-90"
-              >
-                <Send className="w-5 h-5" />
-              </button>
-            </form>
-          )}
+          <form onSubmit={handleSend} className="relative flex items-center">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onFocus={scrollToBottom}
+              placeholder={eventChat ? `Message pour « ${eventChat.title} »…` : "Envoyer une vibe..."}
+              className="w-full bg-white border border-slate-200 pl-4 pr-14 py-3 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-900 placeholder:text-slate-400"
+            />
+            <button
+              type="submit"
+              disabled={!newMessage.trim()}
+              className="absolute right-1 p-3 bg-blue-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl active:scale-90"
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          </form>
         </div>
       )}
     </div>
@@ -404,28 +474,20 @@ interface EventItem {
   id: string;
   title: string;
   start_time: string;
+  duration_minutes: number | null;
   max_participants: number;
   current_participants: number;
   creator_id: string;
 }
 
-function formatCountdown(startTime: string) {
-  const diff = new Date(startTime).getTime() - Date.now();
-  if (diff <= 0) return 'Maintenant !';
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `Dans ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  return `Dans ${hrs}h${mins % 60 > 0 ? (mins % 60).toString().padStart(2, '0') : ''}`;
-}
-
-function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: string; venueSlug: string; writePermission: boolean; userId?: string }) {
+function EventsTab({ venueId, venueSlug, isMember, userId, onOpenChat }: { venueId: string; venueSlug: string; isMember: boolean; userId?: string; onOpenChat: (ev: EventItem) => void }) {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [participations, setParticipations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     supabase.from('events')
-      .select('id, title, start_time, max_participants, current_participants, creator_id')
+      .select('id, title, start_time, duration_minutes, max_participants, current_participants, creator_id')
       .eq('venue_id', venueId)
       .gte('start_time', new Date(Date.now() - 3600000).toISOString())
       .order('start_time', { ascending: true })
@@ -458,21 +520,36 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
     if (!userId) return;
     setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: ev.current_participants + 1 } : ev));
     setParticipations(prev => { const n = new Set(prev); n.add(eventId); return n; });
-    await supabase.from('event_participants').insert({ event_id: eventId, user_id: userId });
+    const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: userId });
+    if (error) {
+      console.error('[join event]', error.message);
+      setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: Math.max(0, ev.current_participants - 1) } : ev));
+      setParticipations(prev => { const n = new Set(prev); n.delete(eventId); return n; });
+    }
   };
 
   const handleLeave = async (eventId: string) => {
     if (!userId) return;
     setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: Math.max(0, ev.current_participants - 1) } : ev));
     setParticipations(prev => { const n = new Set(prev); n.delete(eventId); return n; });
-    await supabase.from('event_participants').delete().match({ event_id: eventId, user_id: userId });
+    const { error } = await supabase.from('event_participants').delete().match({ event_id: eventId, user_id: userId });
+    if (error) {
+      console.error('[leave event]', error.message);
+      setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: ev.current_participants + 1 } : ev));
+      setParticipations(prev => { const n = new Set(prev); n.add(eventId); return n; });
+    }
   };
 
   const handleDelete = async (eventId: string) => {
     const confirm = window.confirm("Es-tu sûr de vouloir supprimer cet événement ?");
     if (!confirm) return;
+    const removed = events.find(ev => ev.id === eventId);
     setEvents(prev => prev.filter(ev => ev.id !== eventId));
-    await supabase.from('events').delete().eq('id', eventId);
+    const { error } = await supabase.from('events').delete().eq('id', eventId);
+    if (error && removed) {
+      console.error('[delete event]', error.message);
+      setEvents(prev => [...prev, removed].sort((a, b) => a.start_time.localeCompare(b.start_time)));
+    }
   };
 
   return (
@@ -501,11 +578,18 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-sm text-slate-900 truncate">{ev.title}</h3>
-                  <p className="text-[11px] text-slate-500">{formatCountdown(ev.start_time)} · {ev.current_participants}/{ev.max_participants}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {formatEventTiming(ev.start_time)}{ev.duration_minutes ? ` · ${formatDuration(ev.duration_minutes)}` : ''} · {ev.current_participants}/{ev.max_participants}
+                  </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {(isCreator || isParticipant) && (
+                  <button onClick={() => onOpenChat(ev)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg active:scale-95" title="Chat de l'event">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {isCreator ? (
                   <>
                     <span className="text-[9px] text-blue-600 font-medium px-1.5 py-0.5 bg-blue-50 rounded">Votre event</span>
@@ -513,10 +597,12 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
                   </>
                 ) : isParticipant ? (
                   <button onClick={() => handleLeave(ev.id)} className="bg-slate-100 text-slate-600 text-[11px] font-semibold py-1 px-2.5 rounded-lg active:scale-95 border border-slate-200">Quitter</button>
-                ) : !isFull ? (
+                ) : isFull ? (
+                  <span className="text-[11px] text-red-400 font-medium">Complet</span>
+                ) : isMember ? (
                   <button onClick={() => handleJoin(ev.id)} className="bg-blue-600 text-white text-[11px] font-semibold py-1 px-2.5 rounded-lg active:scale-95">Rejoindre</button>
                 ) : (
-                  <span className="text-[11px] text-red-400 font-medium">Complet</span>
+                  <span className="text-[10px] text-slate-400 font-medium">🔒 Scan requis</span>
                 )}
               </div>
             </div>
@@ -524,11 +610,15 @@ function EventsTab({ venueId, venueSlug, writePermission, userId }: { venueId: s
         })
       )}
 
-      {writePermission && (
+      {isMember ? (
         <Link href={`/event/create?venue_id=${venueId}&slug=${venueSlug}`} className="mt-1 border-2 border-dashed border-slate-300 active:border-blue-500 active:bg-blue-50 rounded-xl p-3 flex items-center justify-center gap-2 text-slate-500 active:text-blue-600">
           <Plus className="w-4 h-4" />
-          <span className="text-sm font-medium">Créer un événement Flash</span>
+          <span className="text-sm font-medium">Créer un événement</span>
         </Link>
+      ) : (
+        <p className="mt-1 text-center text-[11px] text-slate-400 p-3">
+          🔒 Scannez le QR code du lieu pour créer un événement.
+        </p>
       )}
     </div>
   );

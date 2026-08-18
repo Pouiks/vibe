@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/core/supabase/client';
 import { useVibeStore } from '@/core/store/useVibeStore';
 
@@ -16,14 +17,15 @@ export interface ChatMessage {
   reactions: { type: string; userId: string }[];
 }
 
-export function useRealtimeChat(venueId: string) {
+// eventId = null → chat général du lieu ; sinon → chat dédié de l'event.
+export function useRealtimeChat(venueId: string, eventId: string | null = null) {
   const user = useVibeStore((state) => state.user);
   const writePermission = useVibeStore((state) => state.writePermission);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [onlineCount, setOnlineCount] = useState(0);
   const [onSiteCount, setOnSiteCount] = useState(0);
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   // Fetch initial messages — only when we have a real UUID (not a slug)
   useEffect(() => {
@@ -32,34 +34,48 @@ export function useRealtimeChat(venueId: string) {
     let isMounted = true;
     
     const fetchMessages = async () => {
-      // 1. Fetch messages (24h retention)
-      const { data: messagesData, error } = await supabase
+      // 1. Fetch messages (24h retention pour le chat du lieu ; le chat d'un
+      // event garde tout son historique)
+      let query = supabase
         .from('messages')
         .select(`
           id, content, created_at, user_id, is_on_site,
           profiles:user_id(username)
         `)
-        .eq('venue_id', venueId)
-        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .eq('venue_id', venueId);
+      query = eventId
+        ? query.eq('event_id', eventId)
+        : query.is('event_id', null).gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      const { data: messagesData } = await query
         .order('created_at', { ascending: true })
         .limit(100);
         
       if (messagesData && isMounted) {
+        interface MessageRow {
+          id: string; content: string; created_at: string; user_id: string;
+          is_on_site: boolean | null;
+          profiles: { username: string } | { username: string }[] | null;
+        }
+        const rows = messagesData as unknown as MessageRow[];
+
         // 2. Fetch reactions separately to avoid relation cache errors
-        const messageIds = messagesData.map((m: any) => m.id);
-        const { data: reactionsData } = messageIds.length > 0 
+        const messageIds = rows.map(m => m.id);
+        const { data: reactionsData } = messageIds.length > 0
            ? await supabase.from('message_reactions').select('*').in('message_id', messageIds)
            : { data: [] };
 
-        setMessages(messagesData.map((m: any) => ({
-          id: m.id,
-          content: m.content,
-          created_at: m.created_at,
-          user_id: m.user_id,
-          username: m.profiles?.username || 'Utilisateur Anonyme',
-          isOnSite: !!m.is_on_site,
-          reactions: reactionsData?.filter(r => r.message_id === m.id).map(r => ({ type: r.reaction_type, userId: r.user_id })) || []
-        })));
+        setMessages(rows.map(m => {
+          const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+          return {
+            id: m.id,
+            content: m.content,
+            created_at: m.created_at,
+            user_id: m.user_id,
+            username: profile?.username || 'Utilisateur Anonyme',
+            isOnSite: !!m.is_on_site,
+            reactions: reactionsData?.filter(r => r.message_id === m.id).map(r => ({ type: r.reaction_type, userId: r.user_id })) || []
+          };
+        }));
       }
       if (isMounted) setLoading(false);
     };
@@ -68,7 +84,7 @@ export function useRealtimeChat(venueId: string) {
 
     // Subscribe to realtime
     const channel = supabase
-      .channel(`public:messages:venue_id=eq.${venueId}`, {
+      .channel(`public:messages:venue_id=eq.${venueId}${eventId ? `:event=${eventId}` : ''}`, {
         config: { presence: { key: user?.id || `anon-${Math.random()}` } }
       });
       
@@ -79,8 +95,8 @@ export function useRealtimeChat(venueId: string) {
         const state = channel.presenceState();
         let total = 0;
         let onSite = 0;
-        for (const id in state) { 
-           const tabs = state[id] as any[];
+        for (const id in state) {
+           const tabs = state[id] as { is_present?: boolean }[];
            total++;
            if (tabs.some(t => t.is_present)) onSite++;
         }
@@ -100,7 +116,11 @@ export function useRealtimeChat(venueId: string) {
         async (payload) => {
           // If we inserted it ourselves optimistically, it might have the same content/user, but let's just fetch the profile to be sure
           const newMessage = payload.new;
-          
+
+          // Le filtre realtime est par venue : on route côté client entre le
+          // chat du lieu (event_id null) et le chat d'un event.
+          if ((newMessage.event_id ?? null) !== (eventId ?? null)) return;
+
           let username = 'Nouveau Vibe';
           if (newMessage.user_id) {
             const { data } = await supabase.from('profiles').select('username').eq('id', newMessage.user_id).single();
@@ -173,7 +193,7 @@ export function useRealtimeChat(venueId: string) {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [venueId, user?.id]);
+  }, [venueId, user?.id, eventId]);
 
   useEffect(() => {
      if (channelRef.current && channelRef.current.state === 'joined') {
@@ -204,10 +224,11 @@ export function useRealtimeChat(venueId: string) {
 
     const { data: inserted, error } = await supabase.from('messages').insert({
       venue_id: venueId,
+      event_id: eventId,
       user_id: user.id,
       content: content,
       is_on_site: writePermission
-    }).select('id, venue_id, content, user_id').single();
+    }).select('id').single();
 
     if (error || !inserted) {
       console.error('Error sending message:', error);
@@ -218,11 +239,11 @@ export function useRealtimeChat(venueId: string) {
     fetch('/api/webhooks/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ record: inserted }),
+      body: JSON.stringify({ message_id: inserted.id }),
     }).catch(() => {});
 
     return true;
-  }, [venueId, user, writePermission]);
+  }, [venueId, eventId, user, writePermission]);
 
   const toggleReaction = useCallback(async (messageId: string, reactionType: string) => {
     if (!user) return;
