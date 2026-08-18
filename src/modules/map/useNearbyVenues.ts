@@ -1,7 +1,6 @@
 "use client";
 import { useState, useCallback, useRef } from 'react';
-import type { MapVenue, VenueGeoJSON } from './types';
-import { toGeoJSON } from './types';
+import type { VenueGeoJSON } from './types';
 
 interface Bounds {
   sw_lng: number;
@@ -34,8 +33,8 @@ export function useNearbyVenues() {
       if (!res.ok) throw new Error('Failed to fetch venues');
       const data: VenueGeoJSON = await res.json();
       setGeojson(data);
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
         console.error('Error fetching nearby venues:', err);
       }
     } finally {
@@ -61,8 +60,8 @@ export function useNearbyVenues() {
       if (!res.ok) throw new Error('Failed to fetch venues');
       const data: VenueGeoJSON = await res.json();
       setGeojson(data);
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
         console.error('Error fetching nearby venues:', err);
       }
     } finally {

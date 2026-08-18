@@ -2,8 +2,8 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNearbyVenues } from './useNearbyVenues';
-import type { VenueGeoJSON } from './types';
 import maplibregl from 'maplibre-gl';
+import { X } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const MAP_STYLE: maplibregl.StyleSpecification = {
@@ -38,6 +38,23 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: '#818cf8',
 };
 
+const CATEGORY_ICONS: Record<string, string> = {
+  sport: '🏀',
+  cafe: '☕',
+  bar: '🍻',
+  other: '📍',
+};
+
+interface SelectedVenue {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  neighborhood?: string | null;
+  scans_count?: number;
+  is_unlocked?: boolean;
+}
+
 interface MapViewProps {
   unlockedVenueIds?: Set<string>;
   initialCenter?: [number, number]; // [lng, lat]
@@ -56,6 +73,7 @@ export default function MapView({
   const router = useRouter();
   const { geojson, loading, fetchByBounds } = useNearbyVenues();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [selected, setSelected] = useState<SelectedVenue | null>(null);
 
   const center = initialCenter || userLocation || [2.3522, 48.8566]; // Default: Paris
 
@@ -210,11 +228,11 @@ export default function MapView({
 
     const venueLayerIds = ['venues-circles-active', 'venues-circles-preview'];
     for (const layerId of venueLayerIds) {
+      // Info-bulle teaser plutôt que navigation directe : donner envie d'ouvrir.
       map.on('click', layerId, (e) => {
         const feature = e.features?.[0];
         if (!feature || !feature.properties) return;
-        const slug = feature.properties.slug;
-        if (slug) router.push(`/l/${slug}`);
+        setSelected(feature.properties as unknown as SelectedVenue);
       });
       map.on('mouseenter', layerId, () => {
         map.getCanvas().style.cursor = 'pointer';
@@ -223,6 +241,12 @@ export default function MapView({
         map.getCanvas().style.cursor = '';
       });
     }
+
+    // Clic sur la carte hors marqueur : ferme l'info-bulle.
+    map.on('click', (e) => {
+      const feats = map.queryRenderedFeatures(e.point, { layers: venueLayerIds });
+      if (feats.length === 0) setSelected(null);
+    });
 
     mapRef.current = map;
 
@@ -257,7 +281,7 @@ export default function MapView({
           },
         })),
       };
-      source.setData(enriched as any);
+      source.setData(enriched as unknown as GeoJSON.FeatureCollection);
     }
   }, [geojson, unlockedVenueIds]);
 
@@ -267,6 +291,31 @@ export default function MapView({
       {loading && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm text-blue-600 text-xs font-medium px-3 py-1.5 rounded-full border border-blue-200">
           Chargement des spots...
+        </div>
+      )}
+      {selected && (
+        <div className="absolute bottom-3 left-3 right-3 bg-white rounded-2xl border border-slate-200 shadow-lg p-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-xl shrink-0">{CATEGORY_ICONS[selected.category] || '📍'}</span>
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm text-slate-900 truncate">{selected.name}</h3>
+              <p className="text-[11px] text-slate-500 truncate">
+                {selected.neighborhood ? `${selected.neighborhood} · ` : ''}
+                {selected.scans_count ?? 0} scan{(selected.scans_count ?? 0) > 1 ? 's' : ''}
+                {selected.is_unlocked ? ' · ✓ membre' : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => router.push(`/l/${selected.slug}`)}
+              className="bg-blue-600 text-white text-xs font-semibold py-2 px-3.5 rounded-xl active:scale-95">
+              Découvrir
+            </button>
+            <button onClick={() => setSelected(null)} className="p-1.5 text-slate-400 active:text-slate-600" aria-label="Fermer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>

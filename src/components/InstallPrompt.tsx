@@ -5,64 +5,74 @@ import { X, Download, Share, PlusSquare, Compass, Bell } from "lucide-react";
 const DISMISS_KEY = "vibe_install_dismissed_at";
 const DISMISS_DURATION_MS = 24 * 60 * 60 * 1000; // 24 h
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+interface InstallEnv {
+  standalone: boolean;
+  iOS: boolean;
+  nonSafariIOS: boolean;
+  visible: boolean;
+}
+
 interface InstallPromptProps {
   context?: "home" | "venue";
 }
 
 export function InstallPrompt({ context = "home" }: InstallPromptProps) {
-  const [isIOS, setIsIOS] = useState(false);
-  const [isChromeIOS, setIsChromeIOS] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isStandalone, setIsStandalone] = useState(true);
-  const [isVisible, setIsVisible] = useState(false);
+  const [env, setEnv] = useState<InstallEnv | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
-    const isPwa = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone;
-    setIsStandalone(!!isPwa);
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      !!(window.navigator as Navigator & { standalone?: boolean }).standalone;
 
     const ua = navigator.userAgent;
-    const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const iOS = /iPad|iPhone|iPod/.test(ua) && !("MSStream" in window);
     // Any iOS browser that is NOT Safari (CriOS=Chrome, FxiOS=Firefox, EdgiOS=Edge, OPiOS=Opera, Ecosia, Brave…)
-    const nonSafariIOS = iOS && (
-      /CriOS|FxiOS|EdgiOS|OPiOS|Ecosia|Brave|DuckDuckGo|GSA/i.test(ua)
-    );
-    setIsIOS(iOS);
-    setIsChromeIOS(nonSafariIOS);
+    const nonSafariIOS = iOS && /CriOS|FxiOS|EdgiOS|OPiOS|Ecosia|Brave|DuckDuckGo|GSA/i.test(ua);
 
-    const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-    if (!isPwa) {
+    let visible = false;
+    if (!standalone) {
       const dismissedAt = localStorage.getItem(DISMISS_KEY);
       if (!dismissedAt || Date.now() - Number(dismissedAt) > DISMISS_DURATION_MS) {
         localStorage.removeItem(DISMISS_KEY);
-        setIsVisible(true);
+        visible = true;
       }
     }
 
+    // Browser-only detection: must run once after hydration, a single state
+    // update is intended here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEnv({ standalone, iOS, nonSafariIOS, visible });
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   }, []);
 
   const handleDismiss = () => {
-    setIsVisible(false);
+    setEnv(prev => (prev ? { ...prev, visible: false } : prev));
     localStorage.setItem(DISMISS_KEY, String(Date.now()));
   };
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") {
-        setDeferredPrompt(null);
-        setIsVisible(false);
-      }
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+      setEnv(prev => (prev ? { ...prev, visible: false } : prev));
     }
   };
 
-  if (isStandalone || !isVisible) return null;
+  if (!env || env.standalone || !env.visible) return null;
 
   const isVenue = context === "venue";
 
@@ -92,26 +102,26 @@ export function InstallPrompt({ context = "home" }: InstallPromptProps) {
                 : "Ajoute l'app sur ton écran d'accueil pour ne rien rater."}
             </p>
 
-            {isChromeIOS ? (
+            {env.nonSafariIOS ? (
               <div className="bg-orange-50 rounded-xl p-2.5 text-[11px] font-medium text-orange-700 border border-orange-200">
                 <Compass className="inline w-3 h-3 mr-1 -mt-0.5" />
-                Sur iPhone, ouvre ce lien dans <strong>Safari</strong> pour pouvoir installer l'app.
+                Sur iPhone, ouvre ce lien dans <strong>Safari</strong> pour pouvoir installer l&apos;app.
               </div>
-            ) : isIOS ? (
+            ) : env.iOS ? (
               <div className="bg-blue-50 rounded-xl p-2.5 text-[11px] font-medium text-blue-700 border border-blue-200 space-y-1">
                 <p>1. Appuie sur <strong>Partager</strong> <Share className="inline w-3 h-3 mx-0.5" /></p>
-                <p>2. Puis <strong>Sur l'écran d'accueil</strong> <PlusSquare className="inline w-3 h-3 mx-0.5" /></p>
+                <p>2. Puis <strong>Sur l&apos;écran d&apos;accueil</strong> <PlusSquare className="inline w-3 h-3 mx-0.5" /></p>
               </div>
             ) : deferredPrompt ? (
               <button
                 onClick={handleInstallClick}
                 className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all text-white py-2 rounded-xl text-xs font-bold shadow-lg"
               >
-                Installer l'app
+                Installer l&apos;app
               </button>
             ) : (
               <div className="bg-slate-50 rounded-xl p-2.5 text-[11px] font-medium text-slate-600 border border-slate-200">
-                Ouvre le menu (⋮) puis <strong>"Ajouter à l'écran d'accueil"</strong>
+                Ouvre le menu (⋮) puis <strong>&quot;Ajouter à l&apos;écran d&apos;accueil&quot;</strong>
               </div>
             )}
           </div>
