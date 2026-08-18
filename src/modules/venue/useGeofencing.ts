@@ -1,6 +1,12 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useVibeStore } from '@/core/store/useVibeStore';
+
+export const GEOFENCE_RADIUS_M = 100;
+
+export function isWithinGeofence(distanceMeters: number): boolean {
+  return distanceMeters <= GEOFENCE_RADIUS_M;
+}
 
 export function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // radius of Earth in metres
@@ -17,35 +23,28 @@ export function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lo
   return R * c;
 }
 
+// Side-effect hook: keeps store.writePermission in sync with GPS proximity.
+// No cleanup reset: writePermission must survive the venue page unmounting,
+// otherwise navigating to /event/create would revoke it mid-flow.
 export function useGeofencing(venueLat?: number, venueLng?: number) {
   const setGPSStatus = useVibeStore((state) => state.setGPSStatus);
-  const isBypassPayment = useVibeStore((state) => state.isBypassPayment); // For POC demo
-  const [distance, setDistance] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (venueLat === undefined || venueLng === undefined) return;
-
-    if (!navigator.geolocation) {
-       setError("Geolocation not supported");
-       if (isBypassPayment) setGPSStatus(true); // Bypass for POC
-       return;
-    }
+    if (!navigator.geolocation) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         const dist = getDistanceInMeters(
-          position.coords.latitude, 
-          position.coords.longitude, 
-          venueLat, 
+          position.coords.latitude,
+          position.coords.longitude,
+          venueLat,
           venueLng
         );
-        setDistance(dist);
-        setGPSStatus(dist <= 100); // 100 meters radius
+        setGPSStatus(isWithinGeofence(dist));
       },
       (err) => {
-        setError(err.message);
-        if (isBypassPayment) setGPSStatus(true); // Always allow in POC if GPS fails but bypassed
+        console.warn('[Geofencing]', err.message);
       },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
     );
@@ -53,7 +52,5 @@ export function useGeofencing(venueLat?: number, venueLng?: number) {
     return () => {
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [venueLat, venueLng, setGPSStatus, isBypassPayment]);
-
-  return { distance, error };
+  }, [venueLat, venueLng, setGPSStatus]);
 }

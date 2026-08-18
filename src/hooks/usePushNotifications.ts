@@ -97,33 +97,6 @@ export function usePushNotifications() {
     }
   };
 
-  const toggleVenueSubscription = async (venue_id: string, isFollowing: boolean) => {
-    if (!user) return false;
-    
-    if (isFollowing) {
-      const result = await subscribeToPush();
-      if (result !== 'granted') return false;
-    }
-
-    try {
-      if (isFollowing) {
-        await supabase.from('channel_subscriptions').upsert({
-          user_id: user.id,
-          venue_id: venue_id
-        });
-      } else {
-        await supabase.from('channel_subscriptions')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('venue_id', venue_id);
-      }
-      return true;
-    } catch (e) {
-      console.error(e);
-      return false;
-    }
-  };
-
   /** Toggle mute on a venue subscription (keeps subscription, just silences push) */
   const toggleMute = async (venueId: string, muted: boolean): Promise<boolean> => {
     if (!user) return false;
@@ -141,12 +114,11 @@ export function usePushNotifications() {
     }
   };
 
-  return { 
-    isSupported, 
-    isSubscribed, 
-    subscribeToPush, 
+  return {
+    isSupported,
+    isSubscribed,
+    subscribeToPush,
     unsubscribeFromPush,
-    toggleVenueSubscription,
     toggleMute
   };
 }

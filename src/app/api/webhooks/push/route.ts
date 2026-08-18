@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
-import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+import { createServerSupabase } from '@/core/supabase/server';
+import { sendPushToUsers, sendVenuePush } from '@/core/push/sendVenuePush';
 
-if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    'mailto:contact@vibe.local',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
-}
-
-const NOTIF_COOLDOWN_MS = 30_000; // 30 seconds anti-spam cooldown per user per venue
+const MAX_MESSAGE_AGE_MS = 2 * 60_000; // only freshly sent messages may trigger a push
 
 function getAdminSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -23,91 +16,90 @@ function getAdminSupabase() {
 
 export async function POST(req: Request) {
   try {
-    const admin = getAdminSupabase();
-    const body = await req.json();
-    const payload = body.record;
+    // Only the authenticated author of a fresh message may trigger its push.
+    const supabase = await createServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!payload?.venue_id || !payload?.content || !payload?.user_id) {
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    const { message_id } = await req.json();
+    if (!message_id) {
+      return NextResponse.json({ error: 'Missing message_id' }, { status: 400 });
+    }
+
+    const admin = getAdminSupabase();
+    const { data: message } = await admin
+      .from('messages')
+      .select('id, venue_id, event_id, content, user_id, created_at')
+      .eq('id', message_id)
+      .single();
+
+    if (!message) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
+    if (message.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (Date.now() - new Date(message.created_at).getTime() > MAX_MESSAGE_AGE_MS) {
+      return NextResponse.json({ success: true, sent: 0, message: 'Message too old, skipped' });
+    }
+
+    // Atomic claim: a given message notifies at most once, even under
+    // concurrent replays of the same message_id.
+    const { data: claimed } = await admin
+      .from('messages')
+      .update({ notified_at: new Date().toISOString() })
+      .eq('id', message_id)
+      .is('notified_at', null)
+      .select('id');
+
+    if (!claimed || claimed.length === 0) {
+      return NextResponse.json({ success: true, sent: 0, message: 'Already notified' });
     }
 
     const { data: venue } = await admin
       .from('venues')
       .select('slug, name')
-      .eq('id', payload.venue_id)
+      .eq('id', message.venue_id)
       .single();
 
-    const venueSlug = venue?.slug || '';
-    const venueName = venue?.name || 'un lieu';
+    // Message du chat d'un event : seuls ses participants sont notifiés.
+    if (message.event_id) {
+      const { data: event } = await admin
+        .from('events')
+        .select('title')
+        .eq('id', message.event_id)
+        .single();
 
-    // Fetch subscribers with mute + cooldown info, exclude sender
-    const { data: subscribers } = await admin
-      .from('channel_subscriptions')
-      .select('user_id, muted, last_notified_at')
-      .eq('venue_id', payload.venue_id)
-      .neq('user_id', payload.user_id);
+      const { data: participants } = await admin
+        .from('event_participants')
+        .select('user_id')
+        .eq('event_id', message.event_id)
+        .neq('user_id', message.user_id);
 
-    if (!subscribers || subscribers.length === 0) {
-      return NextResponse.json({ success: true, message: 'No subscribers' });
+      const result = await sendPushToUsers(admin, {
+        userIds: (participants || []).map(p => p.user_id),
+        title: `💬 ${event?.title || 'Event'} · ${venue?.name || 'un lieu'}`,
+        body: message.content,
+        url: `/l/${venue?.slug || ''}?tab=events`,
+      });
+
+      return NextResponse.json({ success: true, ...result });
     }
 
-    const now = Date.now();
-    const eligibleUserIds = subscribers
-      .filter(s => {
-        if (s.muted) return false;
-        if (s.last_notified_at) {
-          const elapsed = now - new Date(s.last_notified_at).getTime();
-          if (elapsed < NOTIF_COOLDOWN_MS) return false;
-        }
-        return true;
-      })
-      .map(s => s.user_id);
-
-    if (eligibleUserIds.length === 0) {
-      return NextResponse.json({ success: true, message: 'All subscribers muted or in cooldown' });
-    }
-
-    const { data: pushSettings } = await admin
-      .from('push_subscriptions')
-      .select('endpoint, p256dh, auth, user_id')
-      .in('user_id', eligibleUserIds);
-
-    if (!pushSettings || pushSettings.length === 0) {
-      return NextResponse.json({ success: true, message: 'No push endpoints' });
-    }
-
-    const notificationPayload = JSON.stringify({
-      title: `💬 ${venueName}`,
-      body: payload.content,
-      data: { url: `/l/${venueSlug}` }
+    const result = await sendVenuePush(admin, {
+      venueId: message.venue_id,
+      excludeUserId: message.user_id,
+      title: `💬 ${venue?.name || 'un lieu'}`,
+      body: message.content,
+      url: `/l/${venue?.slug || ''}`,
     });
 
-    const pushPromises = pushSettings.map(async (sub) => {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          notificationPayload
-        );
-      } catch (err: any) {
-        if (err.statusCode === 404 || err.statusCode === 410) {
-          await admin.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
-        }
-      }
-    });
-
-    await Promise.all(pushPromises);
-
-    // Update last_notified_at for all notified users (batch cooldown)
-    const notifiedUserIds = [...new Set(pushSettings.map(s => s.user_id))];
-    await admin
-      .from('channel_subscriptions')
-      .update({ last_notified_at: new Date().toISOString() })
-      .eq('venue_id', payload.venue_id)
-      .in('user_id', notifiedUserIds);
-
-    return NextResponse.json({ success: true, sent: pushSettings.length, skipped: subscribers.length - eligibleUserIds.length });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, ...result });
+  } catch (error) {
     console.error('Webhook error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Internal error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
