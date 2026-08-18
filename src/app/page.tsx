@@ -1,13 +1,14 @@
 "use client";
 import Link from 'next/link';
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ScanLine, MessageCircle, Crown, Zap, Calendar, Map as MapIcon, List } from 'lucide-react';
+import { ScanLine, MessageCircle, Crown, Calendar, Map as MapIcon, List } from 'lucide-react';
+import { formatEventTiming } from '@/core/datetime';
 import { InstallPrompt } from '@/components/InstallPrompt';
 
 const LazyMapView = lazy(() => import('@/modules/map/MapView'));
+const LazyQRScanner = lazy(() => import('@/modules/scan/QRScannerOverlay'));
 
 interface Venue {
   id: string;
@@ -43,13 +44,13 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 export default function Home() {
-  const router = useRouter();
   const user = useVibeStore((state) => state.user);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [myEvents, setMyEvents] = useState<MyEvent[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [unlockedVenueIds, setUnlockedVenueIds] = useState<Set<string>>(new Set());
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -101,19 +102,10 @@ export default function Home() {
           .eq('user_id', user.id)
           .gte('events.start_time', new Date(Date.now() - 3600 * 1000).toISOString())
           .order('created_at', { ascending: false });
-        if (data) setMyEvents(data as any);
+        if (data) setMyEvents(data as unknown as MyEvent[]);
       } catch { /* non-critical */ }
     })();
   }, [user]);
-
-  function formatCountdown(startTime: string) {
-    const diff = new Date(startTime).getTime() - Date.now();
-    if (diff <= 0) return 'Maintenant !';
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `Dans ${mins} min`;
-    const hrs = Math.floor(mins / 60);
-    return `Dans ${hrs}h${mins % 60 > 0 ? (mins % 60).toString().padStart(2, '0') : ''}`;
-  }
 
   return (
     <main className="min-h-[100dvh] flex flex-col bg-slate-50">
@@ -155,7 +147,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="mt-3 bg-blue-50 text-blue-600 text-xs font-semibold py-1.5 px-3 rounded-lg w-fit">
-                      {formatCountdown(ev.start_time)}
+                      {formatEventTiming(ev.start_time)}
                     </div>
                   </Link>
                 );
@@ -165,20 +157,17 @@ export default function Home() {
         )}
 
         {/* Scan Button */}
-        <div className="bg-white shadow-sm border border-slate-200 p-5 rounded-3xl w-full flex flex-col gap-5 mb-8 text-center items-center">
-          <div className="bg-blue-50 p-4 rounded-full">
-            <ScanLine className="w-8 h-8 text-blue-600" />
+        <button
+          onClick={() => setScannerOpen(true)}
+          className="w-full bg-blue-600 text-white rounded-2xl p-4 mb-6 flex items-center gap-3 active:scale-[0.98] transition-transform shadow-sm">
+          <div className="bg-white/15 p-2.5 rounded-xl shrink-0">
+            <ScanLine className="w-5 h-5" />
           </div>
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mb-1">Où êtes-vous ?</h2>
-            <p className="text-xs text-slate-500 max-w-[250px] mx-auto leading-relaxed">
-              Scannez le QR code d'un lieu pour discuter avec les personnes présentes et créer des events.
-            </p>
+          <div className="text-left min-w-0">
+            <span className="font-bold text-sm block">Scanner un lieu</span>
+            <span className="text-[11px] text-blue-100 block truncate">Tu es sur place ? Scanne le QR code pour entrer.</span>
           </div>
-          <button className="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2">
-            <ScanLine className="w-4 h-4" /> Ouvrir la caméra
-          </button>
-        </div>
+        </button>
 
         {/* View Mode Toggle + Venues */}
         <div>
@@ -189,15 +178,15 @@ export default function Home() {
             <div className="flex bg-white border border-slate-200 rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1 text-[11px] font-semibold ${viewMode === 'list' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                <List className="w-3.5 h-3.5" />
+                <List className="w-3.5 h-3.5" /> Liste
               </button>
               <button
                 onClick={() => setViewMode('map')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'map' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1 text-[11px] font-semibold ${viewMode === 'map' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                <MapIcon className="w-3.5 h-3.5" />
+                <MapIcon className="w-3.5 h-3.5" /> Carte
               </button>
             </div>
           </div>
@@ -211,26 +200,31 @@ export default function Home() {
               ) : venues.length === 0 ? (
                 <div className="text-center py-8 text-slate-400 text-sm">Aucun lieu enregistré.</div>
               ) : (
-                venues.map((v) => (
-                  <Link
-                    key={v.id}
-                    href={`/l/${v.slug}`}
-                    className="bg-white shadow-sm border border-slate-200 p-3.5 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 relative flex items-center justify-center">
-                        <span className="text-lg">{CATEGORY_ICONS[v.category] || '📍'}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <h3 className="font-bold text-[14px] text-slate-900">{v.name}</h3>
-                        <p className="text-[11px] text-slate-400 capitalize">{v.neighborhood ? `${v.neighborhood} · ` : ''}{v.category}</p>
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <Zap className="w-4 h-4 text-blue-500" />
-                    </div>
-                  </Link>
-                ))
+                [...venues]
+                  .sort((a, b) => Number(unlockedVenueIds.has(b.id)) - Number(unlockedVenueIds.has(a.id)))
+                  .map((v) => {
+                    const isMySpot = unlockedVenueIds.has(v.id);
+                    return (
+                      <Link
+                        key={v.id}
+                        href={`/l/${v.slug}`}
+                        className={`bg-white shadow-sm border p-3.5 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform ${isMySpot ? 'border-blue-200' : 'border-slate-200'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 relative flex items-center justify-center">
+                            <span className="text-lg">{CATEGORY_ICONS[v.category] || '📍'}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <h3 className="font-bold text-[14px] text-slate-900">{v.name}</h3>
+                            <p className="text-[11px] text-slate-400 capitalize">{v.neighborhood ? `${v.neighborhood} · ` : ''}{v.category}</p>
+                          </div>
+                        </div>
+                        {isMySpot && (
+                          <span className="shrink-0 text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">✓ Mon spot</span>
+                        )}
+                      </Link>
+                    );
+                  })
               )}
             </div>
           ) : (
@@ -245,6 +239,16 @@ export default function Home() {
         </div>
       </div>
       
+      {scannerOpen && (
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        }>
+          <LazyQRScanner onClose={() => setScannerOpen(false)} />
+        </Suspense>
+      )}
+
       <InstallPrompt />
     </main>
   );
