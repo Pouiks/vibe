@@ -323,9 +323,10 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
               <img src={venue.photo_url} alt={venue.name} className="w-full max-w-[280px] h-36 object-cover rounded-2xl border border-slate-200 shadow-sm" />
             )}
             <div className="bg-blue-50 p-4 rounded-full text-3xl">🔒</div>
-            <h2 className="font-bold text-slate-900">Chat réservé aux personnes sur place</h2>
+            <h2 className="font-bold text-slate-900">Chat réservé aux membres</h2>
             <p className="text-slate-500 text-sm leading-relaxed max-w-[280px]">
-              Scanne le QR code affiché sur place pour découvrir ce qui s&apos;y passe et participer.
+              Scanne une fois le QR code affiché sur place pour rejoindre le groupe.
+              Ensuite, tu peux discuter d&apos;où tu veux.
             </p>
             {onlineCount > 0 && (
               <p className="text-blue-600 text-xs font-semibold">{onlineCount} personne{onlineCount > 1 ? 's' : ''} en ligne en ce moment</p>
