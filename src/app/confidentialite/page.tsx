@@ -20,14 +20,14 @@ export default function ConfidentialitePage() {
           <section>
             <h2>Ce que nous collectons</h2>
             <ul className="list-disc ml-5 flex flex-col gap-1">
-              <li><strong>Ton email</strong> — uniquement pour te connecter (lien magique). Il n&apos;est jamais affiché aux autres membres.</li>
-              <li><strong>Un pseudo anonyme</strong> généré automatiquement (ex. « CosmicPanda42 ») — c&apos;est lui que voient les autres.</li>
-              <li><strong>Ton profil optionnel</strong> (prénom, âge, sexe) — uniquement si tu le remplis.</li>
+              <li><strong>Ton email</strong> : uniquement pour te connecter (lien magique). Il n&apos;est jamais affiché aux autres membres.</li>
+              <li><strong>Un pseudo anonyme</strong> généré automatiquement (ex. « CosmicPanda42 ») : c&apos;est lui que voient les autres.</li>
+              <li><strong>Ton profil optionnel</strong> (prénom, âge, sexe) : uniquement si tu le remplis.</li>
               <li><strong>Les spots que tu as rejoints</strong> en scannant leur QR code, et tes messages dans leurs chats.</li>
               <li><strong>Tes events</strong> créés ou rejoints.</li>
               <li><strong>Une adresse technique de notification</strong> si tu actives les notifications push.</li>
               <li><strong>Une mesure d&apos;audience interne</strong> : quand une page de lieu est ouverte via son QR code,
-                nous comptons la visite avec un identifiant aléatoire stocké sur ton appareil — hébergée chez nous,
+                nous comptons la visite avec un identifiant aléatoire stocké sur ton appareil, hébergée chez nous,
                 jamais partagée, supprimée après 12 mois. Aucun outil tiers.</li>
             </ul>
           </section>
@@ -36,7 +36,7 @@ export default function ConfidentialitePage() {
             <h2>Ta position</h2>
             <p>
               Ta position GPS est traitée <strong>uniquement dans ton navigateur</strong> pour vérifier que tu es sur place
-              (rayon de 100 m). Elle n&apos;est <strong>jamais envoyée ni stockée</strong> sur nos serveurs — seul un badge
+              (rayon de 100 m). Elle n&apos;est <strong>jamais envoyée ni stockée</strong> sur nos serveurs : seul un badge
               « sur place » (oui/non) accompagne tes messages.
             </p>
           </section>
@@ -55,7 +55,7 @@ export default function ConfidentialitePage() {
             <p>
               Depuis ton <Link href="/profile" className="text-blue-600 font-medium">profil</Link>, tu peux à tout moment :
               modifier tes informations, <strong>télécharger toutes tes données</strong> (format JSON), ou
-              <strong> supprimer définitivement ton compte</strong> — tout est effacé immédiatement (messages, adhésions,
+              <strong> supprimer définitivement ton compte</strong> : tout est effacé immédiatement (messages, adhésions,
               events, notifications), sans délai ni justification.
             </p>
           </section>

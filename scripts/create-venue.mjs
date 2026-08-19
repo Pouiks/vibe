@@ -108,7 +108,7 @@ const { data: venue } = await supabase
 const secret = Array.isArray(venue?.venue_secrets) ? venue.venue_secrets[0] : venue?.venue_secrets;
 if (!secret?.scan_token) {
   console.error(
-    `Lieu créé (${slug}) mais AUCUN token généré — la migration secure_scan_and_rls.sql\n` +
+    `Lieu créé (${slug}) mais AUCUN token généré : la migration secure_scan_and_rls.sql\n` +
     "n'a probablement pas été exécutée dans le SQL Editor Supabase. Exécute-la puis relance ce script : il détectera le lieu existant."
   );
   process.exit(1);

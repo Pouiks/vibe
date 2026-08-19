@@ -160,7 +160,7 @@ export default function AdminVenuesPage() {
 
         <p className="text-[11px] text-slate-400 mt-8 max-w-sm leading-relaxed">
           Pour l&apos;affichette imprimable : <code className="bg-slate-100 px-1 rounded">npm run qr</code> sur ton poste.
-          Le lien « Tester le scan » contient le token secret du lieu — ne le partage pas.
+          Le lien « Tester le scan » contient le token secret du lieu : ne le partage pas.
         </p>
       </div>
     );

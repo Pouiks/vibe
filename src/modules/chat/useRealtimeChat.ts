@@ -27,7 +27,7 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
   const [onSiteCount, setOnSiteCount] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Fetch initial messages — only when we have a real UUID (not a slug)
+  // Fetch initial messages - only when we have a real UUID (not a slug)
   useEffect(() => {
     if (!venueId || !UUID_RE.test(venueId)) return;
     

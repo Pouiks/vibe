@@ -18,7 +18,7 @@ export interface PushResult {
 }
 
 // Sends a push to every endpoint of the given users and cleans up dead
-// endpoints (404/410). No cooldown here — callers decide the eligibility.
+// endpoints (404/410). No cooldown here - callers decide the eligibility.
 export async function sendPushToUsers(
   admin: SupabaseClient,
   opts: { userIds: string[]; title: string; body: string; url: string }

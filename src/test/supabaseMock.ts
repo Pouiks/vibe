@@ -5,7 +5,7 @@ export interface RecordedCall { method: string; args: unknown[] }
 // Chainable thenable standing in for the supabase-js query builder: any method
 // call is RECORDED (name + args) and returns the proxy itself; awaiting it
 // resolves to the queued result. Recording makes filters and writes assertable
-// — a test can verify that `.is('notified_at', null)` was really applied.
+// - a test can verify that `.is('notified_at', null)` was really applied.
 function makeChain(result: unknown, calls: RecordedCall[]) {
   const promise = Promise.resolve(result);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

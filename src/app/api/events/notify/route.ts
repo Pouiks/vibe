@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       venueId,
       excludeUserId: event.creator_id,
       title: `🔥 Nouvel évent à ${venueName}`,
-      body: `${event.title} — ${timeLabel} (${event.max_participants} places)`,
+      body: `${event.title} · ${timeLabel} (${event.max_participants} places)`,
       url: `/l/${venueSlug}?tab=events`,
     });
 

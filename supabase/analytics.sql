@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_analytics_venue_type_date
 ALTER TABLE public.analytics_events ENABLE ROW LEVEL SECURITY;
 
 -- Écriture ouverte (y compris anonyme : le scan d'une affiche précède le
--- compte), lecture interdite aux clients — seuls la RPC admin et la clé
+-- compte), lecture interdite aux clients - seuls la RPC admin et la clé
 -- service lisent.
 DROP POLICY IF EXISTS "Anyone can log analytics" ON public.analytics_events;
 CREATE POLICY "Anyone can log analytics" ON public.analytics_events

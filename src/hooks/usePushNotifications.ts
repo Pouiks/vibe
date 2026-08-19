@@ -37,7 +37,7 @@ export function usePushNotifications() {
 
     try {
       if ('Notification' in window) {
-        // Always attempt to request — if already denied the browser returns 'denied' instantly
+        // Always attempt to request - if already denied the browser returns 'denied' instantly
         const permission = await Notification.requestPermission();
         if (permission === 'denied') {
           return 'denied';

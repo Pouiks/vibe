@@ -11,7 +11,7 @@ function getAdminSupabase() {
   return createClient(url, serviceKey, { auth: { persistSession: false } });
 }
 
-// RGPD — droit à l'effacement : supprime le compte auth ; toutes les données
+// RGPD - droit à l'effacement : supprime le compte auth ; toutes les données
 // applicatives suivent par cascade (profiles → messages, adhésions, events,
 // participations, réactions, abonnements push).
 export async function POST() {

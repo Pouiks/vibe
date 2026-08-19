@@ -18,7 +18,7 @@ interface VenueStats {
 }
 
 function pct(part: number, total: number): string {
-  if (!total) return '—';
+  if (!total) return '-';
   return `${Math.round((part / total) * 100)} %`;
 }
 

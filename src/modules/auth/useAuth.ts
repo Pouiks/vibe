@@ -42,14 +42,14 @@ export function useAuth() {
       }
       setUser(user);
     } catch {
-      // Profile load failed — proceed without user data
+      // Profile load failed - proceed without user data
     }
   }, [setUser]);
 
   useEffect(() => {
     const init = async () => {
       try {
-        // getSession() reads cookies locally — instant, no network call.
+        // getSession() reads cookies locally - instant, no network call.
         // getUser() makes a network request that can hang on mobile Safari.
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {

@@ -2,7 +2,7 @@ SET search_path TO public, extensions, tiger;
 
 -- Seed data for VIBE PWA (PostGIS format)
 -- Slugs follow hierarchical format: city/neighborhood/spot-name
--- location uses ST_MakePoint(longitude, latitude) — lon first!
+-- location uses ST_MakePoint(longitude, latitude) - lon first!
 
 INSERT INTO public.venues (id, slug, name, category, city_slug, neighborhood, location)
 VALUES

@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Refresh the session — reads the cookie, validates the JWT,
+  // Refresh the session - reads the cookie, validates the JWT,
   // and refreshes the token if expired. The updated cookie is
   // written back via setAll above.
   await supabase.auth.getUser();

@@ -107,7 +107,7 @@ REVOKE UPDATE ON public.channel_subscriptions FROM authenticated, anon;
 GRANT UPDATE (muted) ON public.channel_subscriptions TO authenticated;
 
 -- ── 5. messages : lire ET écrire exigent l'adhésion au spot ──────────────
--- Décision produit : pas de mode spectateur — le chat d'un lieu n'est
+-- Décision produit : pas de mode spectateur - le chat d'un lieu n'est
 -- visible qu'après avoir scanné son QR code sur place.
 
 DROP POLICY IF EXISTS "Messages visible to everyone" ON public.messages;

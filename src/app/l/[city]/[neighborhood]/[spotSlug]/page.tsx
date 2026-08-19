@@ -100,7 +100,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   }, [fullSlug]);
 
   // Entonnoir du scan : une visite venue du QR (avec token) est comptée une
-  // fois, connecté ou non — c'est la métrique d'efficacité de l'affiche.
+  // fois, connecté ou non - c'est la métrique d'efficacité de l'affiche.
   const qrVisitTracked = useRef(false);
   useEffect(() => {
     if (!venue || !scanToken || qrVisitTracked.current) return;

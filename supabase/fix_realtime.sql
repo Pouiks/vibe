@@ -10,7 +10,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 2. Add tables to the publication (idempotent — skips if already present)
+-- 2. Add tables to the publication (idempotent - skips if already present)
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables

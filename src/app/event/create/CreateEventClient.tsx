@@ -152,7 +152,7 @@ export default function CreateEventClient() {
           </button>
         </div>
         {!writePermission && (
-          <p className="text-[11px] text-slate-400 -mt-3 ml-1">⚡ Flash uniquement sur place — planifie ton event pour plus tard.</p>
+          <p className="text-[11px] text-slate-400 -mt-3 ml-1">⚡ Flash uniquement sur place : planifie ton event pour plus tard.</p>
         )}
 
         <div className="flex flex-col gap-2">

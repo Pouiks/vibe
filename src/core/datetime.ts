@@ -12,7 +12,7 @@ export function formatCountdown(startTime: string | Date, now: number = Date.now
   return `Dans ${days} j`;
 }
 
-// "sam. 22/08 · 14:00" — pour les events planifiés à plus de 24 h.
+// "sam. 22/08 · 14:00" - pour les events planifiés à plus de 24 h.
 export function formatEventDate(startTime: string | Date): string {
   const d = new Date(startTime);
   const date = d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });

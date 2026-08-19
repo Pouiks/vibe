@@ -1,5 +1,5 @@
 -- Script d'exploitation : remise à zéro des données de test avant le lancement réel.
--- ⚠ DESTRUCTIF — à exécuter dans le Supabase SQL Editor, section par section,
+-- ⚠ DESTRUCTIF - à exécuter dans le Supabase SQL Editor, section par section,
 -- en lisant les commentaires. Prérequis : t'être connecté au moins une fois
 -- dans l'app avec ton email (pour que ton profil existe).
 

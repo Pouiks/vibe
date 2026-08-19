@@ -11,7 +11,7 @@ function getAdminSupabase() {
   return createClient(url, serviceKey, { auth: { persistSession: false } });
 }
 
-// RGPD — droit à la portabilité : renvoie toutes les données de l'utilisateur
+// RGPD - droit à la portabilité : renvoie toutes les données de l'utilisateur
 // connecté dans un JSON téléchargeable.
 export async function GET() {
   try {

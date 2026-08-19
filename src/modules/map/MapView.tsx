@@ -154,7 +154,7 @@ export default function MapView({
         },
       });
 
-      // Circle markers — unlocked spots (vivid, prominent)
+      // Circle markers - unlocked spots (vivid, prominent)
       map.addLayer({
         id: 'venues-circles-active',
         type: 'circle',
@@ -177,7 +177,7 @@ export default function MapView({
         },
       });
 
-      // Circle markers — locked spots (still visible, but muted)
+      // Circle markers - locked spots (still visible, but muted)
       map.addLayer({
         id: 'venues-circles-preview',
         type: 'circle',

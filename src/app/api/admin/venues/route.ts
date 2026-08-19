@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     const secret = Array.isArray(venue?.venue_secrets) ? venue.venue_secrets[0] : venue?.venue_secrets;
     if (!secret?.scan_token) {
       return NextResponse.json(
-        { error: 'Lieu créé mais aucun token généré — la migration secure_scan_and_rls.sql n\'a pas été exécutée.' },
+        { error: 'Lieu créé mais aucun token généré : la migration secure_scan_and_rls.sql n\'a pas été exécutée.' },
         { status: 500 }
       );
     }

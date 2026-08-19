@@ -51,7 +51,7 @@ function posterHtml(venue, qrSvg) {
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>QR — ${venue.name}</title>
+<title>QR · ${venue.name}</title>
 <style>
   @page { size: A5 portrait; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -86,7 +86,7 @@ function posterHtml(venue, qrSvg) {
   <div class="qr">${qrSvg}<img class="logo" src="${logoDataUri}" alt=""></div>
   <div class="steps">
     <div><b>1.</b> Scanne le QR code avec ton appareil photo</div>
-    <div><b>2.</b> Connecte-toi — pseudo anonyme automatique</div>
+    <div><b>2.</b> Connecte-toi : pseudo anonyme automatique</div>
     <div><b>3.</b> Discute et rejoins les events de ce lieu</div>
   </div>
   <div class="venue">${venue.name} · ${venue.city_slug}${venue.neighborhood ? ' · ' + venue.neighborhood : ''}</div>
@@ -114,7 +114,7 @@ const index = [];
 for (const venue of venues) {
   const secret = Array.isArray(venue.venue_secrets) ? venue.venue_secrets[0] : venue.venue_secrets;
   if (!secret?.scan_token) {
-    console.warn(`⚠ ${venue.slug} : pas de scan_token (migration secure_scan_and_rls.sql exécutée ?) — ignoré`);
+    console.warn(`⚠ ${venue.slug} : pas de scan_token (migration secure_scan_and_rls.sql exécutée ?), ignoré`);
     continue;
   }
   const qrUrl = `${BASE_URL}/l/${venue.slug}?t=${secret.scan_token}`;
@@ -130,10 +130,10 @@ writeFileSync(
   resolve(outDir, 'index.html'),
   `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Affichettes QR VIBE</title>
 <style>body{font-family:sans-serif;padding:2rem;max-width:640px;margin:auto}h1{font-size:1.4rem}li{margin:.5rem 0}</style></head>
-<body><h1>Affichettes QR — ouvrir puis Ctrl+P (format A5)</h1><ul>
+<body><h1>Affichettes QR : ouvrir puis Ctrl+P (format A5)</h1><ul>
 ${index.map(v => `<li><a href="${v.file}">${v.name}</a> <small>(${v.slug})</small></li>`).join('\n')}
 </ul></body></html>`
 );
 writeFileSync(resolve(outDir, 'qr-codes.json'), JSON.stringify({ base_url: BASE_URL, venues: index }, null, 2));
 
-console.log(`\n${index.length} affichette(s) générée(s) dans qr-output/ — ouvre qr-output/index.html pour imprimer.`);
+console.log(`\n${index.length} affichette(s) générée(s) dans qr-output/. Ouvre qr-output/index.html pour imprimer.`);
