@@ -137,7 +137,7 @@ SELECT cron.schedule(
   '*/5 * * * *',
   $$
   SELECT net.http_post(
-    url := 'https://vibe-ten-pi.vercel.app/api/events/reminders',
+    url := 'https://atoute.app/api/events/reminders',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', 'REMPLACE_MOI_CRON_SECRET'),
     body := '{}'::jsonb
   );

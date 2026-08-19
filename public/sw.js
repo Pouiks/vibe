@@ -1,4 +1,4 @@
-// ── VibeSpot Service Worker ──
+// ── ATOUTE Service Worker ──
 
 // Minimal fetch handler: network-first, required by some browsers for PWA installability
 self.addEventListener('fetch', function(event) {
@@ -22,8 +22,8 @@ self.addEventListener('push', function(event) {
 
     var options = {
       body: data.body,
-      icon: '/vibeSpot-192x192.png',
-      badge: '/vibeSpot-192x192.png',
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-monochrome-512.png',
       data: data.data || { url: '/' },
       vibrate: [200, 100, 200],
       tag: data.data && data.data.url ? 'vibe-' + data.data.url : 'vibe-default',
@@ -31,7 +31,7 @@ self.addEventListener('push', function(event) {
     };
 
     event.waitUntil(
-      self.registration.showNotification(data.title || 'Notification VIBE', options)
+      self.registration.showNotification(data.title || 'Notification ATOUTE', options)
     );
   }
 });

@@ -3,7 +3,12 @@ import { parseScanResult } from './parseScanResult';
 
 describe('parseScanResult', () => {
   it('accepts a production venue QR and keeps only the token', () => {
-    expect(parseScanResult('https://vibe-ten-pi.vercel.app/l/paris/bastille/skatepark?t=abc123&utm_source=x'))
+    expect(parseScanResult('https://atoute.app/l/paris/bastille/skatepark?t=abc123&utm_source=x'))
+      .toBe('/l/paris/bastille/skatepark?t=abc123');
+  });
+
+  it('accepts a legacy QR printed with the old vercel domain', () => {
+    expect(parseScanResult('https://vibe-ten-pi.vercel.app/l/paris/bastille/skatepark?t=abc123'))
       .toBe('/l/paris/bastille/skatepark?t=abc123');
   });
 

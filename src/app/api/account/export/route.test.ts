@@ -45,7 +45,7 @@ describe('GET /api/account/export', () => {
 
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Disposition')).toContain('vibespot-mes-donnees.json');
+    expect(res.headers.get('Content-Disposition')).toContain('atoute-mes-donnees.json');
 
     const body = JSON.parse(await res.text());
     expect(body.account.email).toBe('v@test.fr');
