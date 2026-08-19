@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useVibeStore } from '@/core/store/useVibeStore';
@@ -64,7 +64,7 @@ export default function AdminStatsPage() {
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
         <ShieldAlert className="w-12 h-12 text-red-500 mb-4" />
         <h1 className="text-xl font-bold text-slate-900 mb-2">Accès réservé</h1>
-        <p className="text-slate-500 mb-6 max-w-sm text-sm">Cette page est réservée aux administrateurs VibeSpot.</p>
+        <p className="text-slate-500 mb-6 max-w-sm text-sm">Cette page est réservée aux administrateurs ATOUTE.</p>
         <Link href="/" className="bg-blue-600 px-4 py-2 rounded-xl text-white font-medium text-sm">Retour à l&apos;accueil</Link>
       </div>
     );
@@ -109,7 +109,7 @@ export default function AdminStatsPage() {
                 { label: 'Membres', value: totals.members, icon: MessageCircle },
                 { label: 'Actifs 7j', value: totals.active, icon: CalendarDays },
               ].map(({ label, value, icon: Icon }) => (
-                <div key={label} className="bg-white border border-slate-200 rounded-xl p-3 text-center">
+                <div key={label} className="bg-card border border-slate-200 rounded-xl p-3 text-center">
                   <Icon className="w-3.5 h-3.5 text-blue-600 mx-auto mb-1" />
                   <div className="text-lg font-extrabold text-slate-900">{value}</div>
                   <div className="text-[9px] text-slate-400 font-medium uppercase tracking-wide">{label}</div>
@@ -120,7 +120,7 @@ export default function AdminStatsPage() {
             {/* Par lieu */}
             <div className="flex flex-col gap-3">
               {(stats ?? []).map(s => (
-                <div key={s.venue_id} className="bg-white border border-slate-200 rounded-2xl p-4">
+                <div key={s.venue_id} className="bg-card border border-slate-200 rounded-2xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-bold text-sm text-slate-900 truncate">{s.name}</h3>
                     <Link href={`/l/${s.slug}`} className="text-[10px] text-blue-600 font-medium shrink-0 ml-2">ouvrir →</Link>

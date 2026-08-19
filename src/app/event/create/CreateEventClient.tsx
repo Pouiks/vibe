@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useVibeStore } from '@/core/store/useVibeStore';
@@ -164,7 +164,7 @@ export default function CreateEventClient() {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Ex: 3vs3 Basket"
-            className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
+            className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
           />
         </div>
 
@@ -176,7 +176,7 @@ export default function CreateEventClient() {
             maxLength={200}
             rows={2}
             placeholder="Niveau, matériel à apporter…"
-            className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900 text-sm resize-none"
+            className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900 text-sm resize-none"
           />
         </div>
 
@@ -186,7 +186,7 @@ export default function CreateEventClient() {
             <select
               value={delay}
               onChange={e => setDelay(Number(e.target.value))}
-              className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors appearance-none text-slate-900"
+              className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors appearance-none text-slate-900"
             >
                <option value={15}>Dans 15 minutes</option>
                <option value={30}>Dans 30 minutes</option>
@@ -204,7 +204,7 @@ export default function CreateEventClient() {
               min={minStart}
               max={maxStart}
               onChange={e => setStartAt(e.target.value)}
-              className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
+              className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
             />
             <p className="text-[11px] text-slate-400 ml-1">Les participants recevront un rappel 15 min avant.</p>
           </div>
@@ -215,7 +215,7 @@ export default function CreateEventClient() {
           <div className="grid grid-cols-5 gap-1.5">
             {DURATIONS.map(d => (
               <button key={d.value} type="button" onClick={() => setDuration(d.value)}
-                className={`py-2 rounded-xl text-xs font-semibold border transition-all ${duration === d.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>
+                className={`py-2 rounded-xl text-xs font-semibold border transition-all ${duration === d.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-card text-slate-500 border-slate-200'}`}>
                 {d.label}
               </button>
             ))}
@@ -230,7 +230,7 @@ export default function CreateEventClient() {
             value={maxParticipants}
             onChange={e => setMaxParticipants(Number(e.target.value))}
             required
-            className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
+            className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
           />
         </div>
 

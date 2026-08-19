@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata = {
-  title: 'Confidentialité | VibeSpot',
+  title: 'Confidentialité | ATOUTE',
 };
 
 export default function ConfidentialitePage() {
@@ -65,7 +65,7 @@ export default function ConfidentialitePage() {
             <h2>Ce que nous ne faisons pas</h2>
             <p>
               Pas de revente de données, pas de publicité ciblée, pas de traceurs tiers, pas de croisement avec d&apos;autres
-              services. VibeSpot vit du lien entre un lieu et ses habitués, pas de tes données.
+              services. ATOUTE vit du lien entre un lieu et ses habitués, pas de tes données.
             </p>
           </section>
 
@@ -78,7 +78,7 @@ export default function ConfidentialitePage() {
           </section>
         </div>
 
-        <div className="mt-12 mb-6 text-center text-xs text-slate-400">VibeSpot</div>
+        <div className="mt-12 mb-6 text-center text-xs text-slate-400">ATOUTE</div>
       </div>
     </div>
   );

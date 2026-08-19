@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import Link from 'next/link';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useVibeStore } from '@/core/store/useVibeStore';
@@ -110,7 +110,7 @@ export default function Home() {
   return (
     <main className="min-h-[100dvh] flex flex-col bg-slate-50">
       <header className="p-5 flex items-center justify-between sticky top-0 z-20 bg-slate-50/95 backdrop-blur-md border-b border-slate-200">
-        <h1 className="font-extrabold text-2xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-600">VIBE</h1>
+        <h1 className="font-extrabold text-2xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-600">ATOUTE</h1>
         {user && (
           <Link href="/profile" className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 transition-transform hover:scale-105 active:scale-95 text-white font-bold tracking-widest text-sm relative">
             {user.username.substring(0, 2).toUpperCase()}
@@ -134,7 +134,7 @@ export default function Home() {
                   <Link
                     key={me.event_id}
                     href={`/l/${ev.venues.slug}?tab=events`}
-                    className="snap-start shrink-0 w-[240px] bg-white shadow-sm border border-slate-200 p-4 rounded-2xl flex flex-col justify-between active:scale-[0.98] transition-transform"
+                    className="snap-start shrink-0 w-[240px] bg-card shadow-sm border border-slate-200 p-4 rounded-2xl flex flex-col justify-between active:scale-[0.98] transition-transform"
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-2 text-blue-600 text-[10px] font-bold uppercase">
@@ -160,7 +160,7 @@ export default function Home() {
         <button
           onClick={() => setScannerOpen(true)}
           className="w-full bg-blue-600 text-white rounded-2xl p-4 mb-6 flex items-center gap-3 active:scale-[0.98] transition-transform shadow-sm">
-          <div className="bg-white/15 p-2.5 rounded-xl shrink-0">
+          <div className="bg-card/15 p-2.5 rounded-xl shrink-0">
             <ScanLine className="w-5 h-5" />
           </div>
           <div className="text-left min-w-0">
@@ -175,7 +175,7 @@ export default function Home() {
             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
               <MessageCircle className="w-3 h-3" /> Tous les lieux
             </h2>
-            <div className="flex bg-white border border-slate-200 rounded-lg p-0.5">
+            <div className="flex bg-card border border-slate-200 rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode('list')}
                 className={`px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1 text-[11px] font-semibold ${viewMode === 'list' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
@@ -208,7 +208,7 @@ export default function Home() {
                       <Link
                         key={v.id}
                         href={`/l/${v.slug}`}
-                        className={`bg-white shadow-sm border p-3.5 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform ${isMySpot ? 'border-blue-200' : 'border-slate-200'}`}
+                        className={`bg-card shadow-sm border p-3.5 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform ${isMySpot ? 'border-blue-200' : 'border-slate-200'}`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 relative flex items-center justify-center">
@@ -229,7 +229,7 @@ export default function Home() {
             </div>
           ) : (
             <Suspense fallback={
-              <div className="h-[60vh] rounded-2xl bg-white border border-slate-200 flex items-center justify-center">
+              <div className="h-[60vh] rounded-2xl bg-card border border-slate-200 flex items-center justify-center">
                 <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
               </div>
             }>

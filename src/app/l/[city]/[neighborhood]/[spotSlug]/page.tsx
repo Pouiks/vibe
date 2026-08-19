@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { use, useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGeofencing } from '@/modules/venue/useGeofencing';
@@ -7,7 +7,7 @@ import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Bell, BellOff, Trash2, Sparkles, LogOut, MessageCircle } from 'lucide-react';
+import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Trash2, Sparkles, MessageCircle } from 'lucide-react';
 import { formatEventTiming, formatDuration } from '@/core/datetime';
 import { track } from '@/core/analytics';
 import Link from 'next/link';
@@ -155,56 +155,15 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   const [activeTab, setActiveTab] = useState<'chat' | 'events'>('chat');
   const [eventChat, setEventChat] = useState<{ id: string; title: string } | null>(null);
   const [newMessage, setNewMessage] = useState('');
-  const [isMuted, setIsMuted] = useState(false);
-  const [loadingSub, setLoadingSub] = useState(true);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [showNotifGuide, setShowNotifGuide] = useState(false);
 
-  const { messages, loading: chatLoading, onlineCount, onSiteCount, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug, eventChat?.id ?? null);
-  useGeofencing(venue?.lat, venue?.lng);
-  const { subscribeToPush, toggleMute } = usePushNotifications();
+  const { messages, loading: chatLoading, onlineCount, onSiteCount, presenceSynced, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug, eventChat?.id ?? null);
+  const { permission: geoPermission, requestPresence } = useGeofencing(venue?.lat, venue?.lng);
+  const { subscribeToPush } = usePushNotifications();
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const vp = useVisualViewport();
-
-  useEffect(() => {
-    if (!user || !venue) return;
-    let isMounted = true;
-    supabase.from('channel_subscriptions')
-      .select('venue_id, muted')
-      .eq('user_id', user.id)
-      .eq('venue_id', venue.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (isMounted) {
-          setIsMuted(!!data?.muted);
-          setLoadingSub(false);
-        }
-      });
-    return () => { isMounted = false };
-  }, [user, venue]);
-
-  const handleToggleMute = async () => {
-    if (!venue) return;
-    const newMuted = !isMuted;
-    const success = await toggleMute(venue.id, newMuted);
-    if (success) setIsMuted(newMuted);
-  };
-
-  const leaveSpot = async () => {
-    if (!venue || !user) return;
-    const confirmed = window.confirm('Quitter ce spot ? Tu ne pourras plus écrire dans le chat tant que tu n\'auras pas re-scanné le QR code.');
-    if (!confirmed) return;
-
-    await supabase.from('channel_subscriptions')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('venue_id', venue.id);
-
-    setHasUnlockedArea(false);
-    setIsMuted(false);
-    setEventChat(null);
-  };
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
@@ -263,26 +222,20 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
               <div className="flex items-center gap-1.5 text-[11px]">
                 {writePermission ? (
                   <span className="text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sur place</span>
+                ) : geoPermission === 'prompt' ? (
+                  <button onClick={requestPresence} className="text-orange-400 flex items-center gap-1 underline decoration-dotted underline-offset-2 active:opacity-70">
+                    <Info className="w-2.5 h-2.5" /> Spectateur · activer ma position
+                  </button>
                 ) : (
                   <span className="text-orange-400 flex items-center gap-1"><Info className="w-2.5 h-2.5" /> Spectateur</span>
                 )}
-                {onSiteCount > 0 && <span className="text-emerald-500">· {onSiteCount} sur place</span>}
-                <span className="text-blue-600">· {onlineCount} en ligne</span>
+                {presenceSynced && onSiteCount > 0 && <span className="text-emerald-500">· {onSiteCount} sur place</span>}
+                {presenceSynced && <span className="text-blue-600">· {onlineCount} en ligne</span>}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {user && hasUnlockedArea && (
-              <button onClick={leaveSpot} className="p-1.5 rounded-full text-slate-400 active:text-red-500" title="Quitter le spot">
-                <LogOut className="w-4.5 h-4.5" />
-              </button>
-            )}
-            {user && hasUnlockedArea && !loadingSub && (
-              <button onClick={handleToggleMute} className={`p-1.5 rounded-full ${isMuted ? 'text-slate-400' : 'text-blue-600'}`} title={isMuted ? 'Réactiver les notifications' : 'Couper les notifications'}>
-                {isMuted ? <BellOff className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
-              </button>
-            )}
             {user ? (
               <Link href="/profile" className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-[11px] relative">
                 {user.username.substring(0, 2).toUpperCase()}
@@ -341,9 +294,9 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                 </p>
               </>
             )}
-            {onlineCount > 1 && (
+            {presenceSynced && onlineCount > 1 && (
               <p className="text-blue-600 text-xs font-semibold">
-                {onlineCount - 1} autre{onlineCount > 2 ? 's' : ''} personne{onlineCount > 2 ? 's' : ''} en ligne en ce moment
+                {onlineCount - 1} autre{onlineCount > 2 ? 's' : ''} personne{onlineCount > 2 ? 's' : ''} sur cette page en ce moment
               </p>
             )}
             {joinError && (
@@ -358,7 +311,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-2 min-h-full">
+          <div className="flex flex-col gap-3 min-h-full">
             {eventChat && (
               <div className="sticky top-0 z-10 bg-blue-50 border border-blue-200 rounded-xl p-2.5 flex items-center justify-between">
                 <span className="text-xs font-semibold text-blue-700 truncate">💬 {eventChat.title}</span>
@@ -384,42 +337,46 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
                 return (
                   <div key={m.id} className={`flex flex-col max-w-[80%] relative ${isMe ? 'self-end items-end' : 'self-start items-start'} ${m.isOptimistic ? 'opacity-60' : ''}`}>
-                    <div className="flex items-center gap-1 mb-0.5 ml-1">
-                      <span className={`text-[10px] font-medium ${isMe ? 'text-blue-600' : 'text-slate-500'}`}>
+                    <div className="flex items-center gap-1.5 mb-1 px-1">
+                      <span className={`text-[11px] font-medium ${isMe ? 'text-blue-600' : 'text-slate-500'}`}>
                         {isMe ? 'Vous' : m.username}
                       </span>
-                      {m.isOnSite && <span className="text-[8px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded">📍</span>}
+                      {m.isOnSite && <span className="text-[9px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded">📍</span>}
+                      <span className="text-[10px] text-slate-400">{formatMessageTime(m.created_at)}</span>
                     </div>
 
                     {activeMenu === m.id && (
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white border border-slate-200 shadow-lg rounded-full px-3 py-1 flex items-center gap-3">
-                        {['👍', '❤️', '😂', '🔥'].map(emoji => (
-                          <button
-                            key={emoji}
-                            onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, emoji); setActiveMenu(null); }}
-                            className={`text-xl active:scale-90 rounded-full px-1.5 py-0.5 border ${myReactions.includes(emoji) ? 'bg-blue-50 border-blue-200 text-blue-600 scale-110' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
-                          >{emoji}</button>
-                        ))}
-                      </div>
+                      <>
+                        {/* Tap ailleurs = fermer */}
+                        <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
+                        <div className={`absolute bottom-full mb-1 z-50 bg-card border border-slate-200 shadow-xl rounded-full px-1.5 py-1 flex items-center gap-0.5 ${isMe ? 'right-0' : 'left-0'}`}>
+                          {['👍', '❤️', '😂', '🔥'].map(emoji => (
+                            <button
+                              key={emoji}
+                              onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, emoji); setActiveMenu(null); }}
+                              className={`w-10 h-10 flex items-center justify-center text-2xl rounded-full active:scale-90 transition-transform ${myReactions.includes(emoji) ? 'bg-blue-50' : ''}`}
+                            >{emoji}</button>
+                          ))}
+                        </div>
+                      </>
                     )}
 
                     <div
                       onContextMenu={(e) => { e.preventDefault(); if (hasUnlockedArea) setActiveMenu(activeMenu === m.id ? null : m.id); }}
-                      onClick={() => setActiveMenu(null)}
-                      className={`px-3 py-2 rounded-2xl relative select-none ${isMe ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-900 rounded-tl-sm'}`}>
-                      <p className="text-[13px] leading-relaxed pr-7">{m.content}</p>
-                      <span className="absolute bottom-0.5 right-2 text-[9px] opacity-50">{formatMessageTime(m.created_at)}</span>
+                      onClick={() => { if (hasUnlockedArea) setActiveMenu(activeMenu === m.id ? null : m.id); }}
+                      className={`px-3.5 py-2.5 rounded-2xl select-none ${isMe ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-card border border-slate-200 text-slate-900 rounded-tl-sm'}`}>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.content}</p>
                     </div>
 
                     {Object.keys(reactionsCount).length > 0 && (
-                      <div className={`mt-0.5 flex gap-1 ${isMe ? 'self-end' : 'self-start'}`}>
+                      <div className={`mt-1 flex flex-wrap gap-1 ${isMe ? 'self-end justify-end' : 'self-start'}`}>
                         {Object.entries(reactionsCount).map(([emoji, count]) => (
                           <button
                             key={emoji}
                             onClick={() => hasUnlockedArea && toggleReaction(m.id, emoji)}
-                            className={`flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${myReactions.includes(emoji) ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border shadow-sm ${myReactions.includes(emoji) ? 'bg-blue-50 border-blue-300 text-blue-600' : 'bg-card border-slate-200 text-slate-500'}`}
                           >
-                            <span className="text-xs">{emoji}</span>{(count as number) > 1 ? (count as number) : ''}
+                            <span className="text-[13px] leading-none">{emoji}</span>{(count as number) > 1 ? (count as number) : ''}
                           </button>
                         ))}
                       </div>
@@ -451,7 +408,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
           <p className="text-[12px] font-semibold text-amber-800 mb-1">🔔 Notifications bloquées</p>
           <p className="text-[11px] text-amber-700 leading-relaxed">
             Pour recevoir les messages de ce spot, active les notifications dans tes <strong>Réglages</strong> :
-            Réglages → VibeSpot → Notifications → Autoriser.
+            Réglages → ATOUTE → Notifications → Autoriser.
           </p>
         </div>
       )}
@@ -469,7 +426,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
               onChange={(e) => setNewMessage(e.target.value)}
               onFocus={scrollToBottom}
               placeholder={eventChat ? `Message pour « ${eventChat.title} »…` : "Envoyer une vibe..."}
-              className="w-full bg-white border border-slate-200 pl-4 pr-14 py-3 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-900 placeholder:text-slate-400"
+              className="w-full bg-card border border-slate-200 pl-4 pr-14 py-3 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-900 placeholder:text-slate-400"
             />
             <button
               type="submit"
@@ -587,7 +544,7 @@ function EventsTab({ venueId, venueSlug, isMember, userId, onOpenChat }: { venue
           const isParticipant = participations.has(ev.id);
 
           return (
-            <div key={ev.id} className="bg-white border border-slate-200 shadow-sm p-3 rounded-xl flex items-center justify-between">
+            <div key={ev.id} className="bg-card border border-slate-200 shadow-sm p-3 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className={`p-2 rounded-lg ${isFull && !isParticipant ? 'bg-red-50' : 'bg-blue-50'}`}>
                   <Calendar className={`w-5 h-5 ${isFull && !isParticipant ? 'text-red-500' : 'text-blue-600'}`} />

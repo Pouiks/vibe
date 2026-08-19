@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { X, Download, Share, PlusSquare, ArrowDown, ArrowUp } from "lucide-react";
 
@@ -34,11 +34,11 @@ function IOSInstallOverlay({ shareTopRight, onClose }: { shareTopRight: boolean;
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-slate-900/85 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="absolute inset-x-6 top-1/2 -translate-y-1/2 max-w-sm mx-auto bg-white rounded-3xl p-5 shadow-2xl"
+        className="absolute inset-x-6 top-1/2 -translate-y-1/2 max-w-sm mx-auto bg-card rounded-3xl p-5 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -46,7 +46,7 @@ function IOSInstallOverlay({ shareTopRight, onClose }: { shareTopRight: boolean;
             <div className="bg-blue-600 rounded-xl p-2 shadow-lg shadow-blue-600/20">
               <Download className="w-4 h-4 text-white" />
             </div>
-            <h3 className="text-slate-900 font-bold text-base">Installe VibeSpot</h3>
+            <h3 className="text-slate-900 font-bold text-base">Installe ATOUTE</h3>
           </div>
           <button
             onClick={onClose}
@@ -180,7 +180,7 @@ export function InstallPrompt({ context = "home" }: InstallPromptProps) {
 
   return (
     <div className={`${isVenue ? "px-3 py-2" : "fixed bottom-0 left-0 right-0 z-50 p-4 pb-8 animate-slide-up"}`}>
-      <div className="bg-white p-3 rounded-2xl relative overflow-hidden shadow-lg border border-slate-200">
+      <div className="bg-card p-3 rounded-2xl relative overflow-hidden shadow-lg border border-slate-200">
 
         <button
           onClick={handleDismiss}
@@ -197,7 +197,7 @@ export function InstallPrompt({ context = "home" }: InstallPromptProps) {
 
           <div className="min-w-0 flex-1">
             <h3 className="text-slate-900 font-bold text-sm">
-              {isVenue ? "Ne rate aucun message de ce spot" : "VibeSpot sur ton téléphone"}
+              {isVenue ? "Ne rate aucun message de ce spot" : "ATOUTE sur ton téléphone"}
             </h3>
           </div>
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNearbyVenues } from './useNearbyVenues';
@@ -289,12 +289,12 @@ export default function MapView({
     <div className={`relative ${className}`}>
       <div ref={mapContainer} className="w-full h-full rounded-2xl overflow-hidden" />
       {loading && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm text-blue-600 text-xs font-medium px-3 py-1.5 rounded-full border border-blue-200">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm text-blue-600 text-xs font-medium px-3 py-1.5 rounded-full border border-blue-200">
           Chargement des spots...
         </div>
       )}
       {selected && (
-        <div className="absolute bottom-3 left-3 right-3 bg-white rounded-2xl border border-slate-200 shadow-lg p-3.5 flex items-center justify-between gap-3">
+        <div className="absolute bottom-3 left-3 right-3 bg-card rounded-2xl border border-slate-200 shadow-lg p-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="text-xl shrink-0">{CATEGORY_ICONS[selected.category] || '📍'}</span>
             <div className="min-w-0">

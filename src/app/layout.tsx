@@ -7,7 +7,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const viewport: Viewport = {
-  themeColor: '#f8fafc',
+  themeColor: '#09090b',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -16,16 +16,21 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "VIBESPOT | Connect in the real world",
+  title: "ATOUTE | Connect in the real world",
   description: "L'App'sociale de proximité. Scannez un QR Code, discutez et créez des événements éphémères autour de vous.",
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "VibeSpot",
+    title: "ATOUTE",
   },
   icons: {
-    apple: "/vibeSpot-192x192.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
 };
 
@@ -35,8 +40,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" suppressHydrationWarning>
       <body className={`${inter.className} bg-slate-50 text-slate-900 min-h-screen antialiased`}>
+        {/* Applique le thème choisi avant le premier rendu (dark par défaut) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('atoute_theme')==='light')document.documentElement.classList.add('light')}catch(e){}`,
+          }}
+        />
         <AuthProvider>
           {children}
         </AuthProvider>

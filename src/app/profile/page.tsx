@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -7,12 +7,14 @@ import { supabase } from '@/core/supabase/client';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuth } from '@/modules/auth/useAuth';
-import { Crown, ArrowLeft, Save, BellOff, LogOut, Check, Download, Trash2 } from 'lucide-react';
+import { Crown, ArrowLeft, Save, Bell, BellOff, LogOut, Check, Download, Trash2, Moon, Sun } from 'lucide-react';
+
+interface MySpot { venue_id: string; muted: boolean; name: string; slug: string }
 
 export default function ProfilePage() {
   const user = useVibeStore((state) => state.user);
   const updateUserProfile = useVibeStore((state) => state.updateUserProfile);
-  const { unsubscribeFromPush } = usePushNotifications();
+  const { unsubscribeFromPush, toggleMute } = usePushNotifications();
   const { signOut } = useAuth();
   const router = useRouter();
   useSwipeBack();
@@ -29,6 +31,54 @@ export default function ProfilePage() {
       if (user?.email) setEmail(user.email);
     });
   }, []);
+
+  // ── Thème : sombre par défaut, choix persisté (appliqué par le script du layout)
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  useEffect(() => {
+    // Lecture du DOM après hydratation, une seule mise à jour voulue.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTheme(document.documentElement.classList.contains('light') ? 'light' : 'dark');
+  }, []);
+  const applyTheme = (t: 'dark' | 'light') => {
+    setTheme(t);
+    document.documentElement.classList.toggle('light', t === 'light');
+    try { localStorage.setItem('atoute_theme', t); } catch { /* stockage indisponible */ }
+  };
+
+  // ── Mes spots : notifications par spot et sortie d'un spot
+  const [spots, setSpots] = useState<MySpot[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    let isMounted = true;
+    supabase.from('channel_subscriptions')
+      .select('venue_id, muted, venues(name, slug)')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (!isMounted || !data) return;
+        interface Row { venue_id: string; muted: boolean | null; venues: { name: string; slug: string } | { name: string; slug: string }[] | null }
+        setSpots((data as unknown as Row[]).map(r => {
+          const v = Array.isArray(r.venues) ? r.venues[0] : r.venues;
+          return { venue_id: r.venue_id, muted: !!r.muted, name: v?.name || 'Spot', slug: v?.slug || '' };
+        }));
+      });
+    return () => { isMounted = false; };
+  }, [user]);
+
+  const handleSpotMute = async (s: MySpot) => {
+    const ok = await toggleMute(s.venue_id, !s.muted);
+    if (ok) setSpots(prev => prev.map(x => x.venue_id === s.venue_id ? { ...x, muted: !s.muted } : x));
+  };
+
+  const handleLeaveSpot = async (s: MySpot) => {
+    if (!user) return;
+    const confirmed = window.confirm(`Quitter « ${s.name} » ? Tu ne pourras plus écrire dans ce chat tant que tu n'auras pas re-scanné le QR code sur place.`);
+    if (!confirmed) return;
+    const { error } = await supabase.from('channel_subscriptions')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('venue_id', s.venue_id);
+    if (!error) setSpots(prev => prev.filter(x => x.venue_id !== s.venue_id));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setFormData({...formData, [e.target.name]: e.target.value});
@@ -109,7 +159,7 @@ export default function ProfilePage() {
           <ArrowLeft className="w-4 h-4" /> Retour
         </Link>
         
-        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-6 flex flex-col items-center text-center mb-8 relative overflow-hidden">
+        <div className="bg-card shadow-sm border border-slate-200 rounded-2xl p-6 flex flex-col items-center text-center mb-8 relative overflow-hidden">
            <div className="bg-blue-50 p-4 rounded-full mb-4">
              <Crown className={`w-10 h-10 ${user.isPremium ? 'text-amber-500' : 'text-slate-300'}`} />
            </div>
@@ -127,23 +177,23 @@ export default function ProfilePage() {
         </div>
 
         {/* Informations Personnelles */}
-        <div className={`bg-white shadow-sm border rounded-2xl p-5 mb-8 transition-all duration-1000 ${
+        <div className={`bg-card shadow-sm border rounded-2xl p-5 mb-8 transition-all duration-1000 ${
             isSaved ? 'border-green-500' : 'border-slate-200'
         }`}>
            <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4 ml-1">Mes Informations</h2>
            <form onSubmit={handleSave} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-600 ml-1">Prénom</label>
-                <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="Optionnel" className="bg-white border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500 text-sm transition-colors" />
+                <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="Optionnel" className="bg-card border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500 text-sm transition-colors" />
               </div>
               <div className="flex gap-4">
                  <div className="flex flex-col gap-1.5 flex-1">
                    <label className="text-xs font-semibold text-slate-600 ml-1">Âge</label>
-                   <input type="number" name="age" value={formData.age} onChange={handleChange} placeholder="-" className="bg-white border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500 text-sm transition-colors" />
+                   <input type="number" name="age" value={formData.age} onChange={handleChange} placeholder="-" className="bg-card border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500 text-sm transition-colors" />
                  </div>
                  <div className="flex flex-col gap-1.5 flex-1">
                    <label className="text-xs font-semibold text-slate-600 ml-1">Sexe</label>
-                   <select name="gender" value={formData.gender} onChange={handleChange} className="bg-white border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500 text-sm transition-colors appearance-none">
+                   <select name="gender" value={formData.gender} onChange={handleChange} className="bg-card border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500 text-sm transition-colors appearance-none">
                       <option value="">-</option>
                       <option value="M">Homme</option>
                       <option value="F">Femme</option>
@@ -197,8 +247,59 @@ export default function ProfilePage() {
            </div>
         </div>
 
+        {/* Mes spots */}
+        <div className="bg-card shadow-sm border border-slate-200 rounded-2xl p-5 mb-8">
+           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4 ml-1">Mes spots</h2>
+           {spots.length === 0 ? (
+             <p className="text-xs text-slate-400">Scanne un QR code sur place pour rejoindre ton premier spot.</p>
+           ) : (
+             <div className="flex flex-col gap-2">
+               {spots.map(s => (
+                 <div key={s.venue_id} className="flex items-center gap-1 bg-slate-100 rounded-xl pl-3 pr-1.5 py-1.5">
+                   <Link href={`/l/${s.slug}`} className="flex-1 min-w-0 text-sm font-medium text-slate-900 truncate py-1.5">
+                     {s.name}
+                   </Link>
+                   <button
+                     onClick={() => handleSpotMute(s)}
+                     title={s.muted ? 'Réactiver les notifications de ce spot' : 'Couper les notifications de ce spot'}
+                     className={`p-2 rounded-full active:scale-90 transition-transform ${s.muted ? 'text-slate-400' : 'text-blue-600'}`}
+                   >
+                     {s.muted ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+                   </button>
+                   <button
+                     onClick={() => handleLeaveSpot(s)}
+                     title="Quitter ce spot"
+                     className="p-2 rounded-full text-slate-400 active:text-red-500 active:scale-90 transition-transform"
+                   >
+                     <LogOut className="w-4 h-4" />
+                   </button>
+                 </div>
+               ))}
+             </div>
+           )}
+        </div>
+
+        {/* Apparence */}
+        <div className="bg-card shadow-sm border border-slate-200 rounded-2xl p-5 mb-8">
+           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4 ml-1">Apparence</h2>
+           <div className="flex bg-slate-100 p-0.5 rounded-lg">
+              <button
+                onClick={() => applyTheme('dark')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${theme === 'dark' ? 'bg-card shadow text-slate-900' : 'text-slate-400'}`}
+              >
+                <Moon className="w-3.5 h-3.5" /> Sombre
+              </button>
+              <button
+                onClick={() => applyTheme('light')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${theme === 'light' ? 'bg-card shadow text-slate-900' : 'text-slate-400'}`}
+              >
+                <Sun className="w-3.5 h-3.5" /> Clair
+              </button>
+           </div>
+        </div>
+
         {/* Mes données (RGPD) */}
-        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5">
+        <div className="bg-card shadow-sm border border-slate-200 rounded-2xl p-5">
            <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4 ml-1">Mes données</h2>
            <div className="flex flex-col gap-3">
               <a
@@ -222,7 +323,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="mt-12 text-center text-xs text-slate-400">
-          VibeSpot PWA - Build 2026
+          ATOUTE PWA - Build 2026
         </div>
       </div>
     </div>

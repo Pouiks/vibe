@@ -1,22 +1,89 @@
 @import "tailwindcss";
 
-@theme {
-  --color-brand-100: #dbeafe;
-  --color-brand-500: #2563eb;
-  --color-brand-600: #1d4ed8;
-  --color-brand-900: #1e3a5f;
+/* ── Design ATOUTE : sombre par défaut (neutres zinc, accent corail du logo).
+   Les échelles `slate` (neutres) et `blue` (accent) de Tailwind sont
+   redéfinies ici : tout composant écrit en slate/blue suit le thème sans
+   modification. `.light` sur <html> restaure la palette claire (profil). ── */
 
-  --color-vibe-dark: #f8fafc;
-  --color-vibe-card: #ffffff;
-  --color-vibe-border: rgba(0, 0, 0, 0.08);
-  --color-vibe-accent: #2563eb;
+:root {
+  --card: #18181b;
+
+  /* Neutres : 50 = fond de page … 900 = texte principal */
+  --color-slate-50: #09090b;
+  --color-slate-100: #1f1f23;
+  --color-slate-200: #27272a;
+  --color-slate-300: #3f3f46;
+  --color-slate-400: #71717a;
+  --color-slate-500: #a1a1aa;
+  --color-slate-600: #d4d4d8;
+  --color-slate-700: #e4e4e7;
+  --color-slate-900: #fafafa;
+
+  /* Accent : corail ATOUTE (aucun bleu dans l'app) */
+  --color-blue-50: #2b1512;
+  --color-blue-100: #3b1c16;
+  --color-blue-200: #55271e;
+  --color-blue-300: #8a3f2e;
+  --color-blue-400: #ff8a73;
+  --color-blue-500: #ff7a61;
+  --color-blue-600: #ff684f;
+  --color-blue-700: #e8492f;
+
+  /* États sur fond sombre */
+  --color-emerald-50: #0e2a1e;
+  --color-orange-50: #2b1c0e;
+  --color-orange-200: #4a3320;
+  --color-orange-700: #f0a868;
+  --color-amber-50: #2a2110;
+  --color-amber-200: #4a3a1a;
+  --color-amber-400: #d9a52f;
+  --color-amber-700: #e0b95c;
+  --color-amber-800: #edd08a;
+  --color-red-50: #2a1414;
+  --color-red-200: #4a2020;
+  --color-red-600: #f87171;
 }
 
-@layer base {
-  :root {
-    --background: #f8fafc;
-    --foreground: #0f172a;
-  }
+.light {
+  --card: #ffffff;
+
+  /* Palette Tailwind d'origine */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-900: #0f172a;
+
+  /* Corail assombri pour rester lisible sur fond clair */
+  --color-blue-50: #fff1ee;
+  --color-blue-100: #ffe4de;
+  --color-blue-200: #ffc9bd;
+  --color-blue-300: #ffa591;
+  --color-blue-400: #ff8a73;
+  --color-blue-500: #f4593c;
+  --color-blue-600: #e8492f;
+  --color-blue-700: #cc3a22;
+
+  --color-emerald-50: #ecfdf5;
+  --color-orange-50: #fff7ed;
+  --color-orange-200: #fed7aa;
+  --color-orange-700: #c2410c;
+  --color-amber-50: #fffbeb;
+  --color-amber-200: #fde68a;
+  --color-amber-400: #fbbf24;
+  --color-amber-700: #b45309;
+  --color-amber-800: #92400e;
+  --color-red-50: #fef2f2;
+  --color-red-200: #fecaca;
+  --color-red-600: #dc2626;
+}
+
+@theme inline {
+  --color-card: var(--card);
 }
 
 html, body {
@@ -25,15 +92,15 @@ html, body {
 }
 
 body {
-  color: #0f172a;
-  background: #f8fafc;
+  color: var(--color-slate-900);
+  background: var(--color-slate-50);
   font-family: Arial, Helvetica, sans-serif;
   @apply antialiased;
 }
 
 .glass {
-  background: #ffffff;
-  border: 1px solid var(--color-vibe-border);
+  background: var(--card);
+  border: 1px solid var(--color-slate-200);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 

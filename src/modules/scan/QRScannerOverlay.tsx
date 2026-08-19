@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QrScanner from 'qr-scanner';
@@ -69,7 +69,7 @@ export default function QRScannerOverlay({ onClose }: { onClose: () => void }) {
             Autorise l&apos;accès à la caméra dans les réglages de ton navigateur,
             ou scanne le QR code du lieu avec ton appareil photo.
           </p>
-          <button onClick={onClose} className="mt-2 bg-white text-slate-900 font-semibold py-2.5 px-6 rounded-xl active:scale-95">
+          <button onClick={onClose} className="mt-2 bg-card text-slate-900 font-semibold py-2.5 px-6 rounded-xl active:scale-95">
             Fermer
           </button>
         </div>
@@ -78,7 +78,7 @@ export default function QRScannerOverlay({ onClose }: { onClose: () => void }) {
           <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" />
           <div className="absolute inset-x-0 bottom-[max(2rem,env(safe-area-inset-bottom))] flex justify-center px-6">
             <p className={`text-sm font-medium px-4 py-2 rounded-full backdrop-blur-md ${badQR ? 'bg-red-500/80 text-white' : 'bg-black/50 text-white/90'}`}>
-              {badQR ? "Ce QR code n'est pas un spot VIBE" : 'Vise le QR code affiché sur place'}
+              {badQR ? "Ce QR code n'est pas un spot ATOUTE" : 'Vise le QR code affiché sur place'}
             </p>
           </div>
         </div>

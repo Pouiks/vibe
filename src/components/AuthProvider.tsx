@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-medium tracking-widest text-blue-600 uppercase">Synchronisation VibeSpot...</p>
+          <p className="text-sm font-medium tracking-widest text-blue-600 uppercase">Synchronisation ATOUTE...</p>
         </div>
       </div>
     );

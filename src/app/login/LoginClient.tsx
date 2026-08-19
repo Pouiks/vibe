@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/core/supabase/client';
@@ -34,8 +34,8 @@ function OtpInput({ value, onChange, onComplete, disabled }: {
             className={`w-9 h-12 rounded-lg border-2 flex items-center justify-center text-lg font-bold transition-all ${i < value.length
                 ? 'border-blue-600 bg-blue-50 text-blue-700'
                 : i === value.length
-                  ? 'border-blue-400 bg-white text-slate-900'
-                  : 'border-slate-200 bg-white text-slate-300'
+                  ? 'border-blue-400 bg-card text-slate-900'
+                  : 'border-slate-200 bg-card text-slate-300'
               }`}
           >
             {value[i] || ''}
@@ -137,7 +137,7 @@ export default function LoginClient() {
   if (step === 'otp') {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-slate-50">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-sm w-full text-center">
+        <div className="bg-card rounded-2xl shadow-sm border border-slate-200 p-8 max-w-sm w-full text-center">
           <div className="bg-blue-50 p-5 rounded-full w-fit mx-auto mb-6">
             <ShieldCheck className="w-10 h-10 text-blue-600" />
           </div>
@@ -193,14 +193,14 @@ export default function LoginClient() {
     <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-slate-50">
       <div className="mb-10 text-center">
         <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-600 to-blue-500 mb-3">
-          VIBE
+          ATOUTE
         </h1>
         <p className="text-slate-500 text-sm max-w-[260px] mx-auto leading-relaxed">
           Connecte-toi aux gens autour de toi. Pseudo fun, instantané, local.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-7 max-w-sm w-full">
+      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 p-7 max-w-sm w-full">
         <div className="flex items-center gap-3 mb-6">
           <div className="bg-blue-50 p-3 rounded-2xl">
             <Sparkles className="w-6 h-6 text-blue-600" />
@@ -220,7 +220,7 @@ export default function LoginClient() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ton@email.com"
-              className="w-full bg-white border border-slate-200 pl-11 pr-4 py-3.5 rounded-2xl outline-none focus:border-blue-600 transition-colors text-sm text-slate-900"
+              className="w-full bg-card border border-slate-200 pl-11 pr-4 py-3.5 rounded-2xl outline-none focus:border-blue-600 transition-colors text-sm text-slate-900"
               autoComplete="email"
               autoFocus
             />

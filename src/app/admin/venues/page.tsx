@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useVibeStore } from '@/core/store/useVibeStore';
@@ -131,7 +131,7 @@ export default function AdminVenuesPage() {
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
         <ShieldAlert className="w-12 h-12 text-red-500 mb-4" />
         <h1 className="text-xl font-bold text-slate-900 mb-2">Accès réservé</h1>
-        <p className="text-slate-500 mb-6 max-w-sm text-sm">Cette page est réservée aux administrateurs VibeSpot.</p>
+        <p className="text-slate-500 mb-6 max-w-sm text-sm">Cette page est réservée aux administrateurs ATOUTE.</p>
         <Link href="/" className="bg-blue-600 px-4 py-2 rounded-xl text-white font-medium text-sm">Retour à l&apos;accueil</Link>
       </div>
     );
@@ -148,7 +148,7 @@ export default function AdminVenuesPage() {
           <Link href={created.qr_url} className="bg-blue-600 text-white font-semibold py-3 rounded-xl active:scale-95 flex items-center justify-center gap-2">
             <QrCode className="w-4 h-4" /> Tester le scan (lien QR)
           </Link>
-          <Link href={created.url} className="bg-white border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl active:scale-95 flex items-center justify-center gap-2">
+          <Link href={created.url} className="bg-card border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl active:scale-95 flex items-center justify-center gap-2">
             <MapPin className="w-4 h-4" /> Voir la page du lieu
           </Link>
           <button
@@ -182,7 +182,7 @@ export default function AdminVenuesPage() {
           <label className="text-sm font-medium text-slate-600 ml-1">Nom du lieu</label>
           <input type="text" required maxLength={80} value={name} onChange={e => setName(e.target.value)}
             placeholder="Ex: Terrain de Basket Montcalm"
-            className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900" />
+            className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -190,13 +190,13 @@ export default function AdminVenuesPage() {
             <label className="text-sm font-medium text-slate-600 ml-1">Ville</label>
             <input type="text" required maxLength={80} value={city} onChange={e => setCity(e.target.value)}
               placeholder="Bordeaux"
-              className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900" />
+              className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900" />
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-slate-600 ml-1">Quartier</label>
             <input type="text" required maxLength={80} value={neighborhood} onChange={e => setNeighborhood(e.target.value)}
               placeholder="Montcalm"
-              className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900" />
+              className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900" />
           </div>
         </div>
 
@@ -205,7 +205,7 @@ export default function AdminVenuesPage() {
           <div className="grid grid-cols-4 gap-2">
             {CATEGORIES.map(c => (
               <button key={c.value} type="button" onClick={() => setCategory(c.value)}
-                className={`py-2.5 rounded-xl text-xs font-semibold border transition-all ${category === c.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>
+                className={`py-2.5 rounded-xl text-xs font-semibold border transition-all ${category === c.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-card text-slate-500 border-slate-200'}`}>
                 {c.label}
               </button>
             ))}
@@ -223,17 +223,17 @@ export default function AdminVenuesPage() {
           <div className="grid grid-cols-2 gap-3">
             <input type="text" required inputMode="decimal" value={lat} onChange={e => setLat(e.target.value)}
               placeholder="Latitude (44.8295)"
-              className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900 text-sm" />
+              className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900 text-sm" />
             <input type="text" required inputMode="decimal" value={lng} onChange={e => setLng(e.target.value)}
               placeholder="Longitude (-0.5950)"
-              className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900 text-sm" />
+              className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900 text-sm" />
           </div>
           <p className="text-[11px] text-slate-400 ml-1">Sur place, utilise « Ma position ». Sinon : clic droit sur Google Maps → copier les coordonnées.</p>
         </div>
 
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-slate-600 ml-1">Photo du lieu <span className="text-slate-400 font-normal">(optionnel)</span></label>
-          <label className="w-full bg-white border border-dashed border-slate-300 px-4 py-3 rounded-2xl text-sm text-slate-500 flex items-center gap-2 cursor-pointer active:border-blue-500">
+          <label className="w-full bg-card border border-dashed border-slate-300 px-4 py-3 rounded-2xl text-sm text-slate-500 flex items-center gap-2 cursor-pointer active:border-blue-500">
             <Camera className="w-4 h-4 text-blue-600 shrink-0" />
             <span className="truncate">{photoFile ? photoFile.name : 'Prendre ou choisir une photo'}</span>
             <input
