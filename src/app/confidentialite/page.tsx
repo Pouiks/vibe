@@ -28,7 +28,8 @@ export default function ConfidentialitePage() {
               <li><strong>Une adresse technique de notification</strong> si tu actives les notifications push.</li>
               <li><strong>Une mesure d&apos;audience interne</strong> : quand une page de lieu est ouverte via son QR code,
                 nous comptons la visite avec un identifiant aléatoire stocké sur ton appareil, hébergée chez nous,
-                jamais partagée, supprimée après 12 mois. Aucun outil tiers.</li>
+                jamais partagée, supprimée après 12 mois. S&apos;y ajoute la mesure de pages vues anonyme et
+                <strong> sans cookie</strong> de notre hébergeur (Vercel Analytics). Aucun traceur publicitaire.</li>
             </ul>
           </section>
 
