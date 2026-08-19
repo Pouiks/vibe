@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, Download, Share, PlusSquare, Compass } from "lucide-react";
+import { X, Download, Share, PlusSquare } from "lucide-react";
 
 const DISMISS_KEY = "vibe_install_dismissed_at";
 const DISMISS_DURATION_MS = 24 * 60 * 60 * 1000; // 24 h
@@ -125,9 +125,9 @@ export function InstallPrompt({ context = "home" }: InstallPromptProps) {
         {showHelp && (
           <div className="mt-2.5">
             {env.nonSafariIOS ? (
-              <div className="bg-orange-50 rounded-xl p-2.5 text-[11px] font-medium text-orange-700 border border-orange-200">
-                <Compass className="inline w-3 h-3 mr-1 -mt-0.5" />
-                Sur iPhone, ouvre ce lien dans <strong>Safari</strong> pour pouvoir installer l&apos;app.
+              <div className="bg-blue-50 rounded-xl p-2.5 text-[11px] font-medium text-blue-700 border border-blue-200 space-y-1">
+                <p>1. Appuie sur <strong>Partager</strong> <Share className="inline w-3 h-3 mx-0.5" /> dans la barre d&apos;adresse</p>
+                <p>2. Puis <strong>Ajouter à l&apos;écran d&apos;accueil</strong> <PlusSquare className="inline w-3 h-3 mx-0.5" /></p>
               </div>
             ) : env.iOS ? (
               <div className="bg-blue-50 rounded-xl p-2.5 text-[11px] font-medium text-blue-700 border border-blue-200 space-y-1">
