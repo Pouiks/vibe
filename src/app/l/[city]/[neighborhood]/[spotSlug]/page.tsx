@@ -165,6 +165,21 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   const bottomRef = useRef<HTMLDivElement>(null);
   const vp = useVisualViewport();
 
+  // Marque le chat du lieu comme lu (badge non-lus de la home), throttlé.
+  // Ignore silencieusement l'erreur tant que add_unread_tracking.sql n'est
+  // pas passée (colonne absente).
+  const lastReadSyncAt = useRef(0);
+  useEffect(() => {
+    if (!user || !venue || !hasUnlockedArea || eventChat) return;
+    if (Date.now() - lastReadSyncAt.current < 10_000) return;
+    lastReadSyncAt.current = Date.now();
+    supabase.from('channel_subscriptions')
+      .update({ last_read_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .eq('venue_id', venue.id)
+      .then(() => {});
+  }, [user, venue, hasUnlockedArea, eventChat, messages.length]);
+
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }));
   }, []);

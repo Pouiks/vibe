@@ -183,7 +183,7 @@ export function InstallPrompt({ context = "home" }: InstallPromptProps) {
   const shareTopRight = env.nonSafariIOS || env.iPad;
 
   return (
-    <div className={`${isVenue ? "px-3 py-2" : "fixed bottom-0 left-0 right-0 z-50 p-4 pb-8 animate-slide-up"}`}>
+    <div className={`${isVenue ? "px-3 py-2" : "fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-20 p-4 animate-slide-up"}`}>
       <div className="bg-card p-3 rounded-2xl relative overflow-hidden shadow-lg border border-slate-200">
 
         <button
