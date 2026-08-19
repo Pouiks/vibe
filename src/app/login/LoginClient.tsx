@@ -250,8 +250,8 @@ export default function LoginClient() {
         </form>
 
         <p className="text-[10px] text-slate-400 text-center mt-5 leading-relaxed">
-          Un pseudo fun te sera attribué automatiquement.<br />
-          Ton email reste invisible pour les autres utilisateurs.<br />
+          Pas encore de compte ? Il est créé automatiquement à la première connexion.<br />
+          Un pseudo fun te sera attribué, et ton email reste invisible pour les autres.<br />
           En te connectant, tu acceptes notre{' '}
           <Link href="/confidentialite" className="underline underline-offset-2">politique de confidentialité</Link>.
         </p>

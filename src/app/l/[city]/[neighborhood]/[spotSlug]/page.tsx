@@ -256,9 +256,9 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="min-w-0">
-              <h1 className="font-bold text-base text-slate-900 truncate flex items-center gap-1.5">
+              <h1 className="font-bold text-base text-slate-900 flex items-center gap-1.5 min-w-0">
                 <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                {venue.name}
+                <span className="truncate">{venue.name}</span>
               </h1>
               <div className="flex items-center gap-1.5 text-[11px]">
                 {writePermission ? (
@@ -322,14 +322,29 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
               // eslint-disable-next-line @next/next/no-img-element
               <img src={venue.photo_url} alt={venue.name} className="w-full max-w-[280px] h-36 object-cover rounded-2xl border border-slate-200 shadow-sm" />
             )}
-            <div className="bg-blue-50 p-4 rounded-full text-3xl">🔒</div>
-            <h2 className="font-bold text-slate-900">Chat réservé aux membres</h2>
-            <p className="text-slate-500 text-sm leading-relaxed max-w-[280px]">
-              Scanne une fois le QR code affiché sur place pour rejoindre le groupe.
-              Ensuite, tu peux discuter d&apos;où tu veux.
-            </p>
-            {onlineCount > 0 && (
-              <p className="text-blue-600 text-xs font-semibold">{onlineCount} personne{onlineCount > 1 ? 's' : ''} en ligne en ce moment</p>
+            {scanToken && !user ? (
+              <>
+                <div className="bg-emerald-50 p-4 rounded-full text-3xl">✅</div>
+                <h2 className="font-bold text-slate-900">QR code scanné !</h2>
+                <p className="text-slate-500 text-sm leading-relaxed max-w-[280px]">
+                  Plus qu&apos;une étape : connecte-toi avec ton email pour entrer dans le groupe.
+                  Pas de compte ? Il se crée automatiquement.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="bg-blue-50 p-4 rounded-full text-3xl">🔒</div>
+                <h2 className="font-bold text-slate-900">Chat réservé aux membres</h2>
+                <p className="text-slate-500 text-sm leading-relaxed max-w-[280px]">
+                  Scanne une fois le QR code affiché sur place pour rejoindre le groupe.
+                  Ensuite, tu peux discuter d&apos;où tu veux.
+                </p>
+              </>
+            )}
+            {onlineCount > 1 && (
+              <p className="text-blue-600 text-xs font-semibold">
+                {onlineCount - 1} autre{onlineCount > 2 ? 's' : ''} personne{onlineCount > 2 ? 's' : ''} en ligne en ce moment
+              </p>
             )}
             {joinError && (
               <p className="text-red-600 text-[11px] bg-red-50 border border-red-200 p-2 rounded-xl">
