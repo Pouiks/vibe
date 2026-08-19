@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Download, Share, PlusSquare, ArrowDown, ArrowUp } from "lucide-react";
 
 const DISMISS_KEY = "vibe_install_dismissed_at";
@@ -24,6 +25,8 @@ interface InstallPromptProps {
 
 // Full-screen guide shown on iOS after tapping "Installer l'app": Safari has
 // no install API, so an animated arrow points at the real Share button.
+// Rendered in a portal: the banner keeps a CSS transform after its slide-up
+// animation, which would otherwise trap this fixed overlay inside it.
 function IOSInstallOverlay({ shareTopRight, onClose }: { shareTopRight: boolean; onClose: () => void }) {
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -32,7 +35,7 @@ function IOSInstallOverlay({ shareTopRight, onClose }: { shareTopRight: boolean;
     };
   }, []);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
@@ -99,7 +102,8 @@ function IOSInstallOverlay({ shareTopRight, onClose }: { shareTopRight: boolean;
           <ArrowDown className="w-10 h-10 text-white drop-shadow-lg" />
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
