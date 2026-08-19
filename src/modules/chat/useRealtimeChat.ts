@@ -6,6 +6,36 @@ import { useVibeStore } from '@/core/store/useVibeStore';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const ANON_PRESENCE_KEY = 'vibe_anon_presence_key';
+
+// One person = one presence key; a person is "sur place" if at least one of
+// their tabs is GPS-verified within the geofence.
+export function countPresence(state: Record<string, { is_present?: boolean }[]>): { online: number; onSite: number } {
+  let online = 0;
+  let onSite = 0;
+  for (const key in state) {
+    online++;
+    if (state[key].some(t => t.is_present)) onSite++;
+  }
+  return { online, onSite };
+}
+
+// One stable presence key per person: user id when logged in, otherwise a
+// per-browser key so several tabs (or remounts) never count as several people.
+export function getPresenceKey(userId?: string): string {
+  if (userId) return userId;
+  try {
+    let key = localStorage.getItem(ANON_PRESENCE_KEY);
+    if (!key) {
+      key = `anon-${crypto.randomUUID()}`;
+      localStorage.setItem(ANON_PRESENCE_KEY, key);
+    }
+    return key;
+  } catch {
+    return `anon-${Math.random()}`;
+  }
+}
+
 export interface ChatMessage {
   id: string;
   user_id: string;
@@ -25,7 +55,9 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
   const [loading, setLoading] = useState(true);
   const [onlineCount, setOnlineCount] = useState(0);
   const [onSiteCount, setOnSiteCount] = useState(0);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  // False until the first presence sync: counts are unknown, not zero
+  const [presenceSynced, setPresenceSynced] = useState(false);
+  const presenceChannelRef = useRef<RealtimeChannel | null>(null);
 
   // Fetch initial messages - only when we have a real UUID (not a slug)
   useEffect(() => {
@@ -82,29 +114,12 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
 
     fetchMessages();
 
-    // Subscribe to realtime
+    // Subscribe to realtime (messages only; presence lives on its own
+    // venue-wide channel so the counts don't change when opening an event chat)
     const channel = supabase
-      .channel(`public:messages:venue_id=eq.${venueId}${eventId ? `:event=${eventId}` : ''}`, {
-        config: { presence: { key: user?.id || `anon-${Math.random()}` } }
-      });
-      
-    channelRef.current = channel;
+      .channel(`public:messages:venue_id=eq.${venueId}${eventId ? `:event=${eventId}` : ''}`);
 
     channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        let total = 0;
-        let onSite = 0;
-        for (const id in state) {
-           const tabs = state[id] as { is_present?: boolean }[];
-           total++;
-           if (tabs.some(t => t.is_present)) onSite++;
-        }
-        if (isMounted) {
-          setOnlineCount(total);
-          setOnSiteCount(onSite);
-        }
-      })
       .on(
         'postgres_changes',
         {
@@ -177,27 +192,75 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
           });
         }
       )
-      .subscribe(async (status, err) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({ is_present: useVibeStore.getState().writePermission, online_at: new Date().toISOString() });
-        } else if (status === 'CHANNEL_ERROR') {
+      .subscribe(function onStatus(status, err) {
+        if (status === 'CHANNEL_ERROR') {
           console.error('[Realtime] channel error', err);
         } else if (status === 'TIMED_OUT') {
           console.warn('[Realtime] subscription timed out, retrying…');
-          channel.subscribe();
+          channel.subscribe(onStatus);
         }
       });
 
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
-      channelRef.current = null;
     };
   }, [venueId, user?.id, eventId]);
 
+  // Presence: one channel per venue, independent of which chat is open.
+  // "en ligne" = people with this spot's page open right now (deduplicated);
+  // "sur place" = those among them currently GPS-verified within the geofence.
   useEffect(() => {
-     if (channelRef.current && channelRef.current.state === 'joined') {
-        channelRef.current.track({ is_present: writePermission, online_at: new Date().toISOString() });
+    if (!venueId || !UUID_RE.test(venueId)) return;
+
+    let isMounted = true;
+    setPresenceSynced(false);
+
+    const channel = supabase.channel(`presence:venue:${venueId}`, {
+      config: { presence: { key: getPresenceKey(user?.id) } }
+    });
+    presenceChannelRef.current = channel;
+
+    const track = () =>
+      channel.track({ is_present: useVibeStore.getState().writePermission, online_at: new Date().toISOString() });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const { online, onSite } = countPresence(channel.presenceState());
+        if (isMounted) {
+          setOnlineCount(online);
+          setOnSiteCount(onSite);
+          setPresenceSynced(true);
+        }
+      })
+      .subscribe(function onStatus(status, err) {
+        if (status === 'SUBSCRIBED') {
+          track();
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] presence channel error', err);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime] presence timed out, retrying…');
+          channel.subscribe(onStatus);
+        }
+      });
+
+    // Coming back from background: presence may have been dropped server-side
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && channel.state === 'joined') track();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibility);
+      supabase.removeChannel(channel);
+      presenceChannelRef.current = null;
+    };
+  }, [venueId, user?.id]);
+
+  useEffect(() => {
+     if (presenceChannelRef.current && presenceChannelRef.current.state === 'joined') {
+        presenceChannelRef.current.track({ is_present: writePermission, online_at: new Date().toISOString() });
      }
   }, [writePermission]);
 
@@ -281,5 +344,5 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
     });
   }, [user]);
 
-  return { messages, loading, onlineCount, onSiteCount, sendMessage, toggleReaction };
+  return { messages, loading, onlineCount, onSiteCount, presenceSynced, sendMessage, toggleReaction };
 }
