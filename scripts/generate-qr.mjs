@@ -150,7 +150,8 @@ function posterA6Html(venue, qrSvg) {
 </html>`;
 }
 
-// Sticker carré 80 × 80 mm : l'essentiel, pour poteau / table / vitrine
+// Sticker carré 100 × 100 mm (format standard des imprimeurs d'autocollants,
+// polymère extérieur) : l'essentiel, pour poteau / table / vitrine
 function stickerHtml(venue, qrSvg) {
   return `<!doctype html>
 <html lang="fr">
@@ -158,24 +159,24 @@ function stickerHtml(venue, qrSvg) {
 <meta charset="utf-8">
 <title>Sticker · ${esc(venue.name)}</title>
 <style>
-  @page { size: 80mm 80mm; margin: 0; }
+  @page { size: 100mm 100mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; background: #f1f5f9; }
   .sticker {
-    width: 80mm; height: 80mm; background: #fff; color: #0f172a;
+    width: 100mm; height: 100mm; background: #fff; color: #0f172a;
     display: flex; flex-direction: column; align-items: center; text-align: center;
-    padding: 4mm; border: 0.8mm solid #FF684F; border-radius: 4mm;
+    padding: 5mm; border: 1mm solid #FF684F; border-radius: 5mm;
   }
   @media print { body { background: #fff; } .sticker { border-radius: 0; } }
-  h1 { font-size: 5.5mm; display: flex; align-items: center; gap: 2mm; }
-  h1 img { width: 6.5mm; height: 6.5mm; border-radius: 1.5mm; }
-  .qr { position: relative; width: 54mm; height: 54mm; margin-top: 2.5mm; }
+  h1 { font-size: 7mm; display: flex; align-items: center; gap: 2.5mm; }
+  h1 img { width: 8mm; height: 8mm; border-radius: 2mm; }
+  .qr { position: relative; width: 68mm; height: 68mm; margin-top: 3mm; }
   .qr svg { width: 100%; height: 100%; }
   .qr .logo {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 11mm; height: 11mm; border-radius: 2.5mm; background: #fff; padding: 1mm;
+    width: 14mm; height: 14mm; border-radius: 3mm; background: #fff; padding: 1.2mm;
   }
-  .venue { margin-top: auto; font-size: 2.8mm; color: #94a3b8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .venue { margin-top: auto; font-size: 3.5mm; color: #94a3b8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -216,7 +217,7 @@ mkdirSync(outDir, { recursive: true });
 const FORMATS = [
   { key: 'a5', label: 'A5', prefix: 'affiche-a5', render: posterHtml },
   { key: 'a6', label: 'A6', prefix: 'affiche-a6', render: posterA6Html },
-  { key: 'sticker', label: 'Sticker 8 cm', prefix: 'sticker', render: stickerHtml },
+  { key: 'sticker', label: 'Sticker 10×10 cm', prefix: 'sticker', render: stickerHtml },
 ];
 
 const index = [];
