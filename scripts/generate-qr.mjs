@@ -214,10 +214,56 @@ if (error) {
 const outDir = resolve(root, 'qr-output');
 mkdirSync(outDir, { recursive: true });
 
+// Sticker 100 × 100 mm AVEC fond perdu 3 mm : page 106 × 106, cadre corail
+// débordant — la coupe de l'imprimeur peut dévier sans laisser de filet blanc.
+function stickerBleedHtml(venue, qrSvg) {
+  return `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Sticker fond perdu · ${esc(venue.name)}</title>
+<style>
+  @page { size: 106mm 106mm; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; background: #f1f5f9; }
+  /* 106 mm = 100 de coupe + 3 mm de débord par côté, entièrement corail */
+  .bleed {
+    width: 106mm; height: 106mm; background: #FF684F;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sticker {
+    width: 94mm; height: 94mm; background: #fff; color: #0f172a; border-radius: 4mm;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 4.5mm;
+  }
+  h1 { font-size: 7mm; display: flex; align-items: center; gap: 2.5mm; }
+  h1 img { width: 8mm; height: 8mm; border-radius: 2mm; }
+  .qr { position: relative; width: 64mm; height: 64mm; margin-top: 3mm; }
+  .qr svg { width: 100%; height: 100%; }
+  .qr .logo {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 13mm; height: 13mm; border-radius: 3mm; background: #fff; padding: 1.2mm;
+  }
+  .venue { margin-top: auto; font-size: 3.5mm; color: #94a3b8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="bleed">
+<div class="sticker">
+  <h1><img src="${logoDataUri}" alt="">Scanne-moi&nbsp;!</h1>
+  <div class="qr">${qrSvg}<img class="logo" src="${logoDataUri}" alt=""></div>
+  <div class="venue">${esc(venue.name)} · atoute.app</div>
+</div>
+</div>
+</body>
+</html>`;
+}
+
 const FORMATS = [
   { key: 'a5', label: 'A5', prefix: 'affiche-a5', render: posterHtml },
   { key: 'a6', label: 'A6', prefix: 'affiche-a6', render: posterA6Html },
   { key: 'sticker', label: 'Sticker 10×10 cm', prefix: 'sticker', render: stickerHtml },
+  { key: 'stickerBleed', label: 'Sticker 10×10 + fond perdu 3 mm', prefix: 'sticker-fp', render: stickerBleedHtml },
 ];
 
 const index = [];
