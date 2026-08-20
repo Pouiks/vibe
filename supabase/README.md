@@ -20,6 +20,7 @@ Ils sont globalement idempotents (rejouables), sauf mention contraire.
 | 13 | `switch_domain_atoute.sql` | Cron des rappels → atoute.app | Remplacer `REMPLACE_MOI_CRON_SECRET`. |
 | 14 | `coherence_fixes.sql` | FK owner_id, stats hors chats d'events, purge participations | |
 | 15 | `map_truth.sql` | scans_count = membres réels (décrément + resync) | |
+| 16 | `view_add_tagline.sql` | Recrée venues_with_coords avec tagline | |
 
 Fichiers supprimés : `add_montcalm_and_events.sql` (obsolète — colonnes lat/lng
 disparues, et il recréait une policy que secure_scan_and_rls.sql supprime

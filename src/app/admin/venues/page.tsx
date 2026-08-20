@@ -55,11 +55,24 @@ export default function AdminVenuesPage() {
   const [editError, setEditError] = useState('');
 
   const loadVenues = async () => {
-    const { data } = await supabase
+    // tagline peut être absente de la vue tant que view_add_tagline.sql
+    // n'est pas passée : la liste doit s'afficher quand même.
+    const first = await supabase
       .from('venues_with_coords')
       .select('id, slug, name, category, neighborhood, tagline, photo_url, lat, lng')
       .order('name');
-    if (data) setVenues(data as AdminVenue[]);
+    let data = first.data as unknown as AdminVenue[] | null;
+    let error = first.error;
+    if (error && /tagline/i.test(error.message)) {
+      const retry = await supabase
+        .from('venues_with_coords')
+        .select('id, slug, name, category, neighborhood, photo_url, lat, lng')
+        .order('name');
+      data = retry.data as unknown as AdminVenue[] | null;
+      error = retry.error;
+    }
+    if (error) console.error('[admin/venues] list error:', error.message);
+    if (data) setVenues(data);
   };
 
   useEffect(() => {
