@@ -32,9 +32,9 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  sport: '#34d399',
+  sport: '#ff684f',
   cafe: '#fbbf24',
-  bar: '#f87171',
+  bar: '#c084fc',
   other: '#818cf8',
 };
 
