@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { supabase } from '@/core/supabase/client';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Mail, Sparkles, ArrowRight, ShieldCheck, AlertCircle, RotateCcw } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
+import { useVibeStore } from '@/core/store/useVibeStore';
 
 const OTP_LENGTH = 8;
 
@@ -79,6 +81,13 @@ export default function LoginClient() {
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
+  // Déjà connecté (ou connexion qui vient d'aboutir) : sortir du login vers
+  // la destination — évite l'impasse "je suis connecté mais je vois le login".
+  const user = useVibeStore((state) => state.user);
+  useEffect(() => {
+    if (user) router.replace(returnUrl);
+  }, [user, returnUrl, router]);
+
   const sendOtp = useCallback(async (targetEmail: string) => {
     setLoading(true);
     setError('');
@@ -143,6 +152,7 @@ export default function LoginClient() {
   if (step === 'otp') {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-slate-50">
+        <BackButton withSwipe className="fixed top-[max(1rem,env(safe-area-inset-top))] left-4 inline-flex items-center gap-1.5 text-slate-500 active:text-slate-900 text-sm z-10" />
         <div className="bg-card rounded-2xl shadow-sm border border-slate-200 p-8 max-w-sm w-full text-center">
           <div className="bg-blue-50 p-5 rounded-full w-fit mx-auto mb-6">
             <ShieldCheck className="w-10 h-10 text-blue-600" />
@@ -197,6 +207,7 @@ export default function LoginClient() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-slate-50">
+      <BackButton withSwipe className="fixed top-[max(1rem,env(safe-area-inset-top))] left-4 inline-flex items-center gap-1.5 text-slate-500 active:text-slate-900 text-sm z-10" />
       <div className="mb-10 text-center">
         <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-600 to-blue-500 mb-3">
           ATOUTE
@@ -226,7 +237,7 @@ export default function LoginClient() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ton@email.com"
-              className="w-full bg-card border border-slate-200 pl-11 pr-4 py-3.5 rounded-2xl outline-none focus:border-blue-600 transition-colors text-sm text-slate-900"
+              className="w-full bg-card border border-slate-200 pl-11 pr-4 py-3.5 rounded-2xl outline-none focus:border-blue-500 transition-colors text-sm text-slate-900"
               autoComplete="email"
               autoFocus
             />

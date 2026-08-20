@@ -3,6 +3,8 @@ import { useAuth } from '@/modules/auth/useAuth';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { supabase } from '@/core/supabase/client';
+import { FullScreenLoader } from '@/components/FullScreenLoader';
 
 // '/' en égalité stricte : en préfixe il rendrait TOUTES les routes publiques
 // et désactiverait le garde (bug historique : /profile s'affichait avant
@@ -18,33 +20,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPublicRoute = pathname === '/' || PUBLIC_PREFIXES.some(r => pathname?.startsWith(r));
 
   useEffect(() => {
-    if (!loading && !user && !isPublicRoute) {
+    if (loading || user || isPublicRoute) return;
+    let cancelled = false;
+    // Course post-login : la session existe déjà alors que le profil est
+    // encore en cours d'hydratation (fetch réseau). Ne rediriger vers /login
+    // que s'il n'y a réellement PAS de session — sinon boucle de connexion.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled || session) return;
       const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
       router.replace(`/login?returnUrl=${returnUrl}`);
-    }
+    });
+    return () => { cancelled = true; };
   }, [loading, user, isPublicRoute, router]);
 
   if (loading && !isPublicRoute) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-medium tracking-widest text-blue-600 uppercase">Synchronisation ATOUTE...</p>
-        </div>
-      </div>
-    );
+    return <FullScreenLoader label="Synchronisation ATOUTE..." />;
   }
 
   // Show login page for unauthenticated users on non-public routes
   if (!user && !isPublicRoute) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-medium tracking-widest text-blue-600 uppercase">Redirection...</p>
-        </div>
-      </div>
-    );
+    return <FullScreenLoader label="Redirection..." />;
   }
 
   return <>{children}</>;
