@@ -33,6 +33,10 @@ export async function GET() {
       admin.from('push_subscriptions').select('endpoint, created_at').eq('user_id', user.id),
     ]);
 
+    // Suggestions de lieux (table optionnelle : venue_suggestions.sql)
+    const suggestions = await admin.from('venue_suggestions')
+      .select('content, created_at').eq('user_id', user.id);
+
     // Repli tant que la migration add_unread_tracking.sql (last_read_at)
     // n'est pas passée : mieux vaut exporter les spots sans cette colonne
     // que de perdre toute la section. Ciblé sur l'erreur de colonne pour ne
@@ -54,6 +58,7 @@ export async function GET() {
       events_crees: events.data ?? [],
       participations: participations.data ?? [],
       appareils_notifications: pushEndpoints.data ?? [],
+      suggestions_de_lieux: suggestions.data ?? [],
     };
 
     return new NextResponse(JSON.stringify(payload, null, 2), {

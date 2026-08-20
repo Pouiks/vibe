@@ -7,7 +7,7 @@ import { supabase } from '@/core/supabase/client';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuth } from '@/modules/auth/useAuth';
-import { Crown, Save, Bell, BellOff, LogOut, Check, Download, Trash2, Moon, Sun } from 'lucide-react';
+import { Crown, Save, Bell, BellOff, LogOut, Check, Download, Trash2, Moon, Sun, Lightbulb } from 'lucide-react';
 import { BackButton } from '@/components/BackButton';
 
 interface MySpot { venue_id: string; muted: boolean; name: string; slug: string }
@@ -99,6 +99,24 @@ export default function ProfilePage() {
         .eq('user_id', user.id)
         .in('event_id', evs.map(e => e.id));
     }
+  };
+
+  // ── Suggestion de lieu : idées de spots où poser un QR
+  const [suggestion, setSuggestion] = useState('');
+  const [suggestionState, setSuggestionState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const handleSuggest = async () => {
+    if (!user || suggestion.trim().length < 3 || suggestionState === 'sending') return;
+    setSuggestionState('sending');
+    const { error } = await supabase.from('venue_suggestions')
+      .insert({ user_id: user.id, content: suggestion.trim() });
+    if (error) {
+      console.error('[suggestion]', error.message);
+      setSuggestionState('error');
+      return;
+    }
+    setSuggestion('');
+    setSuggestionState('sent');
+    setTimeout(() => setSuggestionState('idle'), 4000);
   };
 
   // État réel des notifications sur CET appareil (l'abonnement push est par
@@ -327,6 +345,36 @@ export default function ProfilePage() {
                  </div>
                ))}
              </div>
+           )}
+        </div>
+
+        {/* Suggérer un spot */}
+        <div className="bg-card shadow-sm border border-slate-200 rounded-2xl p-5 mb-8">
+           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-2 ml-1 flex items-center gap-1.5">
+             <Lightbulb className="w-3.5 h-3.5 text-blue-600" /> Suggérer un spot
+           </h2>
+           <p className="text-xs text-slate-400 mb-3 ml-1">
+             Un lieu où tu verrais bien un QR ATOUTE ? Un terrain, un bar, un parc… balance l&apos;idée.
+           </p>
+           <textarea
+             value={suggestion}
+             onChange={e => setSuggestion(e.target.value)}
+             maxLength={500}
+             rows={3}
+             placeholder="Ex: Le city-stade derrière la médiathèque, y'a toujours du monde le soir…"
+             className="w-full bg-card border border-slate-200 text-slate-900 px-4 py-2.5 rounded-xl outline-none focus:border-blue-500 text-sm transition-colors resize-none"
+           />
+           <button
+             onClick={handleSuggest}
+             disabled={suggestion.trim().length < 3 || suggestionState === 'sending'}
+             className={`mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium active:scale-95 transition-all disabled:opacity-50 ${suggestionState === 'sent' ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+           >
+             {suggestionState === 'sent' ? (<><Check className="w-4 h-4" /> Merci, bien reçu !</>)
+               : suggestionState === 'sending' ? 'Envoi…'
+               : 'Envoyer ma suggestion'}
+           </button>
+           {suggestionState === 'error' && (
+             <p className="mt-2 text-xs text-red-500 text-center">Envoi impossible pour le moment. Réessaie.</p>
            )}
         </div>
 

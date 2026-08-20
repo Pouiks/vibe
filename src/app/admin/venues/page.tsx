@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, LocateFixed, CheckCircle2, QrCode, ShieldAlert, Sparkles, Camera, Pencil } from 'lucide-react';
+import { MapPin, LocateFixed, CheckCircle2, QrCode, ShieldAlert, Sparkles, Camera, Pencil, Lightbulb, Trash2 } from 'lucide-react';
 import { BackButton } from '@/components/BackButton';
 
 const CATEGORIES = [
@@ -75,8 +75,26 @@ export default function AdminVenuesPage() {
     if (data) setVenues(data);
   };
 
+  // ── Suggestions de lieux envoyées par les membres (venue_suggestions.sql)
+  interface Suggestion { id: string; content: string; created_at: string; profiles: { username: string } | { username: string }[] | null }
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const loadSuggestions = async () => {
+    const { data } = await supabase
+      .from('venue_suggestions')
+      .select('id, content, created_at, profiles:user_id(username)')
+      .order('created_at', { ascending: false });
+    if (data) setSuggestions(data as unknown as Suggestion[]);
+  };
+  const deleteSuggestion = async (id: string) => {
+    const { error: delError } = await supabase.from('venue_suggestions').delete().eq('id', id);
+    if (!delError) setSuggestions(prev => prev.filter(s => s.id !== id));
+  };
+
   useEffect(() => {
-    if (isAdmin) loadVenues();
+    if (isAdmin) {
+      loadVenues();
+      loadSuggestions();
+    }
   }, [isAdmin]);
 
   const startEdit = (v: AdminVenue & { lat?: number; lng?: number }) => {
@@ -459,6 +477,37 @@ export default function AdminVenuesPage() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Suggestions des membres ── */}
+      {suggestions.length > 0 && (
+        <div className="mt-12 max-w-md">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4 ml-1 flex items-center gap-1.5">
+            <Lightbulb className="w-3.5 h-3.5 text-blue-600" /> Suggestions des membres
+          </h2>
+          <div className="flex flex-col gap-2">
+            {suggestions.map(s => {
+              const profile = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+              return (
+                <div key={s.id} className="bg-card border border-slate-200 rounded-2xl p-3.5 flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-900 whitespace-pre-wrap break-words">{s.content}</p>
+                    <p className="text-[10px] text-slate-400 mt-1.5">
+                      {profile?.username || 'Membre'} · {new Date(s.created_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => deleteSuggestion(s.id)}
+                    className="p-1.5 rounded-full text-slate-400 active:text-red-500 shrink-0"
+                    title="Supprimer cette suggestion"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

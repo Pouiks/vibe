@@ -42,11 +42,20 @@ self.addEventListener('notificationclick', function(event) {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       var urlToOpen = event.notification.data.url;
+      // Comparaison par pathname : un onglet déjà ouvert sur la page (même
+      // avec un query différent, ex. ?tab=events) est focalisé puis navigué,
+      // au lieu d'ouvrir une seconde fenêtre (et une seconde presence).
+      var targetPath = new URL(urlToOpen, self.location.origin).pathname;
 
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
-        if (client.url.includes(urlToOpen) && 'focus' in client) {
-          return client.focus();
+        if (new URL(client.url).pathname === targetPath && 'focus' in client) {
+          return client.focus().then(function(focused) {
+            if (focused && focused.navigate && focused.url !== new URL(urlToOpen, self.location.origin).href) {
+              return focused.navigate(urlToOpen);
+            }
+            return focused;
+          });
         }
       }
 

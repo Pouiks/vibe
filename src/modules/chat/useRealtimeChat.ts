@@ -48,7 +48,9 @@ export interface ChatMessage {
 }
 
 // eventId = null → chat général du lieu ; sinon → chat dédié de l'event.
-export function useRealtimeChat(venueId: string, eventId: string | null = null) {
+// isMember : seuls les membres connectés sont comptés "en ligne" — un
+// visiteur de la page lit les compteurs mais n'y figure pas.
+export function useRealtimeChat(venueId: string, eventId: string | null = null, isMember = false) {
   const user = useVibeStore((state) => state.user);
   const writePermission = useVibeStore((state) => state.writePermission);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -58,6 +60,8 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
   // False until the first presence sync: counts are unknown, not zero
   const [presenceSynced, setPresenceSynced] = useState(false);
   const presenceChannelRef = useRef<RealtimeChannel | null>(null);
+  const isMemberRef = useRef(isMember);
+  const trackRef = useRef<(() => void) | null>(null);
 
   // Fetch initial messages - only when we have a real UUID (not a slug)
   useEffect(() => {
@@ -143,11 +147,11 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
           }
 
           setMessages((prev) => {
-            // Remove optimistic message if present (we can identify by a temporary ID, but simpler is to just append if not from ourselves or let optimistic handle it via IDs)
-            // For MVP, we just append from server and rely on ID uniqueness if possible. 
-            // In a real app we'd use a unique constraint or uuid matching.
-            if (prev.find(m => m.isOptimistic && m.content === newMessage.content)) {
-               return prev.map(m => m.isOptimistic && m.content === newMessage.content ? { ...m, id: newMessage.id, isOptimistic: false } : m);
+            // L'id est généré côté client à l'envoi : le message optimiste et
+            // l'écho realtime portent le même uuid — dédup exacte, plus de
+            // télescopage entre deux messages au contenu identique.
+            if (prev.some(m => m.id === newMessage.id)) {
+               return prev.map(m => m.id === newMessage.id ? { ...m, isOptimistic: false } : m);
             }
             return [...prev, {
               id: newMessage.id,
@@ -208,8 +212,9 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
   }, [venueId, user?.id, eventId]);
 
   // Presence: one channel per venue, independent of which chat is open.
-  // "en ligne" = people with this spot's page open right now (deduplicated);
-  // "sur place" = those among them currently GPS-verified within the geofence.
+  // "en ligne" = MEMBRES connectés avec la page ouverte (les visiteurs de
+  // l'écran verrouillé lisent les compteurs mais n'y figurent pas) ;
+  // "sur place" = ceux d'entre eux vérifiés GPS dans la geofence.
   useEffect(() => {
     if (!venueId || !UUID_RE.test(venueId)) return;
 
@@ -221,8 +226,11 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
     });
     presenceChannelRef.current = channel;
 
-    const track = () =>
+    const track = () => {
+      if (!isMemberRef.current) return;
       channel.track({ is_present: useVibeStore.getState().writePermission, online_at: new Date().toISOString() });
+    };
+    trackRef.current = track;
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -255,11 +263,22 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
       document.removeEventListener('visibilitychange', handleVisibility);
       supabase.removeChannel(channel);
       presenceChannelRef.current = null;
+      trackRef.current = null;
     };
   }, [venueId, user?.id]);
 
+  // Adhésion acquise en cours de session (scan) → entrer dans le compteur ;
+  // départ du spot → en sortir immédiatement.
   useEffect(() => {
-     if (presenceChannelRef.current && presenceChannelRef.current.state === 'joined') {
+    isMemberRef.current = isMember;
+    const channel = presenceChannelRef.current;
+    if (!channel || channel.state !== 'joined') return;
+    if (isMember) trackRef.current?.();
+    else channel.untrack();
+  }, [isMember]);
+
+  useEffect(() => {
+     if (presenceChannelRef.current && presenceChannelRef.current.state === 'joined' && isMemberRef.current) {
         presenceChannelRef.current.track({ is_present: writePermission, online_at: new Date().toISOString() });
      }
   }, [writePermission]);
@@ -268,10 +287,11 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
     if (!user) return false;
     if (!content.trim()) return false;
 
-    // Optimistic UI
-    const tempId = `temp-${Date.now()}`;
+    // Optimistic UI : l'uuid est généré ici et envoyé en base — l'écho
+    // realtime porte donc le même id que le message optimiste (dédup exacte)
+    const messageId = crypto.randomUUID();
     const optimisticMessage: ChatMessage = {
-      id: tempId,
+      id: messageId,
       user_id: user.id,
       username: user.username,
       content,
@@ -283,9 +303,8 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
 
     setMessages((prev) => [...prev, optimisticMessage]);
 
-    // We proceed directly to database insert
-
     const { data: inserted, error } = await supabase.from('messages').insert({
+      id: messageId,
       venue_id: venueId,
       event_id: eventId,
       user_id: user.id,
@@ -295,7 +314,7 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
 
     if (error || !inserted) {
       console.error('Error sending message:', error);
-      setMessages((prev) => prev.filter(m => m.id !== tempId));
+      setMessages((prev) => prev.filter(m => m.id !== messageId));
       return false;
     }
 
