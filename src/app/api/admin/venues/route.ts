@@ -14,6 +14,125 @@ function getAdminSupabase() {
   return createClient(url, serviceKey, { auth: { persistSession: false } });
 }
 
+// Vérifie la session et le flag is_admin ; renvoie null avec une réponse
+// d'erreur prête à retourner sinon.
+async function requireAdmin() {
+  const supabase = await createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { admin: null, user: null, response: NextResponse.json({ error: 'Connexion requise.' }, { status: 401 }) };
+  }
+  const admin = getAdminSupabase();
+  const { data: profile } = await admin.from('profiles').select('is_admin').eq('id', user.id).single();
+  if (!profile?.is_admin) {
+    return { admin: null, user: null, response: NextResponse.json({ error: 'Accès réservé aux administrateurs.' }, { status: 403 }) };
+  }
+  return { admin, user, response: null };
+}
+
+const isLabel = (v: unknown): v is string =>
+  typeof v === 'string' && v.trim().length > 0 && v.length <= 80;
+
+// Modification d'un lieu existant. Le slug (imprimé dans les QR) et le token
+// de scan ne sont JAMAIS modifiés ici : les affiches restent valides.
+export async function PATCH(req: Request) {
+  try {
+    const { admin, response } = await requireAdmin();
+    if (!admin) return response;
+
+    const body = await req.json();
+    const { venue_id, name, category, tagline, photo_url, lat, lng } = body ?? {};
+
+    if (typeof venue_id !== 'string' || !venue_id) {
+      return NextResponse.json({ error: 'venue_id requis.' }, { status: 400 });
+    }
+
+    const updates: Record<string, unknown> = {};
+
+    if (name !== undefined) {
+      if (!isLabel(name)) return NextResponse.json({ error: 'Nom invalide (80 caractères max).' }, { status: 400 });
+      updates.name = name.trim();
+    }
+    if (category !== undefined) {
+      if (!CATEGORIES.includes(category)) {
+        return NextResponse.json({ error: `Catégorie invalide. Valeurs possibles : ${CATEGORIES.join(', ')}.` }, { status: 400 });
+      }
+      updates.category = category;
+    }
+    if (tagline !== undefined) {
+      if (tagline !== null && typeof tagline !== 'string') {
+        return NextResponse.json({ error: 'Accroche invalide.' }, { status: 400 });
+      }
+      const trimmed = typeof tagline === 'string' ? tagline.trim() : '';
+      if (trimmed.length > 120) {
+        return NextResponse.json({ error: 'Accroche invalide (120 caractères max).' }, { status: 400 });
+      }
+      updates.tagline = trimmed || null;
+    }
+    if (photo_url !== undefined) {
+      if (photo_url === null) {
+        updates.photo_url = null;
+      } else {
+        const allowedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/venue-photos/`;
+        if (typeof photo_url !== 'string' || !photo_url.startsWith(allowedPrefix)) {
+          return NextResponse.json({ error: 'URL de photo invalide.' }, { status: 400 });
+        }
+        updates.photo_url = photo_url;
+      }
+    }
+    if (lat !== undefined || lng !== undefined) {
+      const latN = Number(lat);
+      const lngN = Number(lng);
+      if (!Number.isFinite(latN) || !Number.isFinite(lngN) || Math.abs(latN) > 90 || Math.abs(lngN) > 180) {
+        return NextResponse.json({ error: 'Coordonnées GPS invalides.' }, { status: 400 });
+      }
+      updates.location = `SRID=4326;POINT(${lngN} ${latN})`;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'Aucun champ à modifier.' }, { status: 400 });
+    }
+
+    const { error: updateError } = await admin.from('venues').update(updates).eq('id', venue_id);
+    if (updateError) {
+      console.error('[admin/venues] update error:', updateError);
+      return NextResponse.json({ error: 'Erreur lors de la modification du lieu.' }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('[admin/venues] error:', error);
+    return NextResponse.json({ error: 'Erreur interne.' }, { status: 500 });
+  }
+}
+
+// Suppression définitive d'un lieu. Les FK en cascade emportent messages,
+// events, participations, adhésions, secrets de scan et analytics : les QR
+// imprimés de ce lieu deviennent définitivement morts.
+export async function DELETE(req: Request) {
+  try {
+    const { admin, response } = await requireAdmin();
+    if (!admin) return response;
+
+    const body = await req.json();
+    const { venue_id } = body ?? {};
+    if (typeof venue_id !== 'string' || !venue_id) {
+      return NextResponse.json({ error: 'venue_id requis.' }, { status: 400 });
+    }
+
+    const { error: deleteError } = await admin.from('venues').delete().eq('id', venue_id);
+    if (deleteError) {
+      console.error('[admin/venues] delete error:', deleteError);
+      return NextResponse.json({ error: 'Erreur lors de la suppression du lieu.' }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('[admin/venues] error:', error);
+    return NextResponse.json({ error: 'Erreur interne.' }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Réservé aux comptes admin (profiles.is_admin, non auto-attribuable).
@@ -36,9 +155,6 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const { name, city, neighborhood, category, lat, lng, photo_url, tagline } = body ?? {};
-
-    const isLabel = (v: unknown): v is string =>
-      typeof v === 'string' && v.trim().length > 0 && v.length <= 80;
 
     if (!isLabel(name) || !isLabel(city) || !isLabel(neighborhood)) {
       return NextResponse.json({ error: 'Nom, ville et quartier sont requis (80 caractères max).' }, { status: 400 });

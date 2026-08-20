@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { supabase } from '@/core/supabase/client';
-import { ArrowLeft, MapPin, LocateFixed, CheckCircle2, QrCode, ShieldAlert, Sparkles, Camera } from 'lucide-react';
+import { MapPin, LocateFixed, CheckCircle2, QrCode, ShieldAlert, Sparkles, Camera, Pencil } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 
 const CATEGORIES = [
   { value: 'sport', label: '🏀 Sport' },
@@ -16,6 +17,16 @@ interface CreatedVenue {
   slug: string;
   url: string;
   qr_url: string;
+}
+
+interface AdminVenue {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  neighborhood: string | null;
+  tagline: string | null;
+  photo_url: string | null;
 }
 
 export default function AdminVenuesPage() {
@@ -34,6 +45,110 @@ export default function AdminVenuesPage() {
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState<CreatedVenue | null>(null);
+
+  // ── Édition des lieux existants (slug et QR jamais modifiés)
+  const [venues, setVenues] = useState<AdminVenue[]>([]);
+  const [editing, setEditing] = useState<AdminVenue | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', category: 'sport', tagline: '', lat: '', lng: '' });
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const loadVenues = async () => {
+    const { data } = await supabase
+      .from('venues_with_coords')
+      .select('id, slug, name, category, neighborhood, tagline, photo_url, lat, lng')
+      .order('name');
+    if (data) setVenues(data as AdminVenue[]);
+  };
+
+  useEffect(() => {
+    if (isAdmin) loadVenues();
+  }, [isAdmin]);
+
+  const startEdit = (v: AdminVenue & { lat?: number; lng?: number }) => {
+    setEditing(v);
+    setEditError('');
+    setEditPhotoFile(null);
+    setEditForm({
+      name: v.name,
+      category: v.category,
+      tagline: v.tagline || '',
+      lat: v.lat !== undefined ? String(v.lat) : '',
+      lng: v.lng !== undefined ? String(v.lng) : '',
+    });
+  };
+
+  const handleDelete = async (v: AdminVenue) => {
+    const confirmed = window.confirm(
+      `Supprimer définitivement « ${v.name} » ?\n\nTous ses messages, events, membres et son QR code seront détruits. Les affiches imprimées de ce lieu ne fonctionneront plus jamais.`
+    );
+    if (!confirmed) return;
+    const typed = window.prompt('Pour confirmer, tape SUPPRIMER en majuscules :');
+    if (typed !== 'SUPPRIMER') return;
+
+    setEditError('');
+    try {
+      const res = await fetch('/api/admin/venues', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venue_id: v.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEditError(data.error || 'Erreur inconnue.');
+        return;
+      }
+      setEditing(null);
+      await loadVenues();
+    } catch {
+      setEditError('Erreur réseau. Réessaie.');
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setEditSaving(true);
+    setEditError('');
+    try {
+      let photo_url: string | undefined;
+      if (editPhotoFile) {
+        const ext = editPhotoFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('venue-photos').upload(path, editPhotoFile);
+        if (uploadError) {
+          setEditError(`Échec de l'envoi de la photo : ${uploadError.message}`);
+          return;
+        }
+        photo_url = supabase.storage.from('venue-photos').getPublicUrl(path).data.publicUrl;
+      }
+
+      const res = await fetch('/api/admin/venues', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          venue_id: editing.id,
+          name: editForm.name,
+          category: editForm.category,
+          tagline: editForm.tagline.trim() || null,
+          ...(photo_url ? { photo_url } : {}),
+          ...(editForm.lat && editForm.lng ? { lat: editForm.lat, lng: editForm.lng } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEditError(data.error || 'Erreur inconnue.');
+        return;
+      }
+      setEditing(null);
+      await loadVenues();
+    } catch {
+      setEditError('Erreur réseau. Réessaie.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -169,9 +284,7 @@ export default function AdminVenuesPage() {
 
   return (
     <div className="min-h-screen p-6 flex flex-col bg-slate-50">
-      <Link href="/" className="text-slate-500 mb-6 w-fit hover:text-slate-900 flex items-center gap-1">
-        <ArrowLeft className="w-4 h-4" /> Retour
-      </Link>
+      <BackButton withSwipe className="text-slate-500 mb-6 w-fit hover:text-slate-900 inline-flex items-center gap-1 text-sm" />
 
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold mb-2 text-slate-900">Nouveau lieu</h1>
@@ -263,6 +376,79 @@ export default function AdminVenuesPage() {
           {loading ? 'Création…' : 'Créer le lieu'}
         </button>
       </form>
+
+      {/* ── Lieux existants ── */}
+      {venues.length > 0 && (
+        <div className="mt-12 max-w-md">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4 ml-1">Lieux existants</h2>
+          <div className="flex flex-col gap-2">
+            {venues.map(v => (
+              <div key={v.id} className="bg-card border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="flex items-center gap-2 px-3.5 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{v.name}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{v.slug}</p>
+                  </div>
+                  <button
+                    onClick={() => (editing?.id === v.id ? setEditing(null) : startEdit(v))}
+                    className={`p-2 rounded-full active:scale-90 transition-transform ${editing?.id === v.id ? 'text-blue-600 bg-blue-50' : 'text-slate-400'}`}
+                    title="Modifier ce lieu"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {editing?.id === v.id && (
+                  <form onSubmit={handleEditSubmit} className="border-t border-slate-200 p-3.5 flex flex-col gap-3">
+                    <p className="text-[11px] text-slate-400">Le lien et le QR code du lieu ne changent pas : les affiches imprimées restent valides.</p>
+                    <input type="text" required maxLength={80} value={editForm.name}
+                      onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Nom du lieu"
+                      className="w-full bg-card border border-slate-200 px-3.5 py-2.5 rounded-xl outline-none focus:border-blue-500 text-slate-900 text-sm" />
+                    <div className="grid grid-cols-4 gap-2">
+                      {CATEGORIES.map(c => (
+                        <button key={c.value} type="button" onClick={() => setEditForm(f => ({ ...f, category: c.value }))}
+                          className={`py-2 rounded-xl text-[11px] font-semibold border transition-all ${editForm.category === c.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-card text-slate-500 border-slate-200'}`}>
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="text" maxLength={120} value={editForm.tagline}
+                      onChange={e => setEditForm(f => ({ ...f, tagline: e.target.value }))}
+                      placeholder="Accroche de l'affiche (optionnel)"
+                      className="w-full bg-card border border-slate-200 px-3.5 py-2.5 rounded-xl outline-none focus:border-blue-500 text-slate-900 text-sm" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" inputMode="decimal" value={editForm.lat}
+                        onChange={e => setEditForm(f => ({ ...f, lat: e.target.value }))}
+                        placeholder="Latitude"
+                        className="w-full bg-card border border-slate-200 px-3.5 py-2.5 rounded-xl outline-none focus:border-blue-500 text-slate-900 text-sm" />
+                      <input type="text" inputMode="decimal" value={editForm.lng}
+                        onChange={e => setEditForm(f => ({ ...f, lng: e.target.value }))}
+                        placeholder="Longitude"
+                        className="w-full bg-card border border-slate-200 px-3.5 py-2.5 rounded-xl outline-none focus:border-blue-500 text-slate-900 text-sm" />
+                    </div>
+                    <label className="w-full bg-card border border-dashed border-slate-300 px-3.5 py-2.5 rounded-xl text-sm text-slate-500 flex items-center gap-2 cursor-pointer active:border-blue-500">
+                      <Camera className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span className="truncate">{editPhotoFile ? editPhotoFile.name : (v.photo_url ? 'Remplacer la photo' : 'Ajouter une photo')}</span>
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={e => setEditPhotoFile(e.target.files?.[0] ?? null)} />
+                    </label>
+                    {editError && <p className="text-red-500 text-xs text-center">{editError}</p>}
+                    <button type="submit" disabled={editSaving || !editForm.name.trim()}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-50 text-sm">
+                      {editSaving ? 'Enregistrement…' : 'Enregistrer'}
+                    </button>
+                    <button type="button" onClick={() => handleDelete(v)}
+                      className="w-full bg-red-50 text-red-500 font-medium py-2.5 rounded-xl transition-all active:scale-95 text-sm">
+                      Supprimer ce lieu…
+                    </button>
+                  </form>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
