@@ -187,7 +187,7 @@ function VenuePageInner(props: { params: Promise<{ city: string; neighborhood: s
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [showNotifGuide, setShowNotifGuide] = useState(false);
 
-  const { messages, loading: chatLoading, onlineCount, onSiteCount, presenceSynced, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug, eventChat?.id ?? null);
+  const { messages, loading: chatLoading, onlineCount, onSiteCount, presenceSynced, sendMessage, toggleReaction } = useRealtimeChat(venue?.id || fullSlug, eventChat?.id ?? null, !!user && hasUnlockedArea);
   const { permission: geoPermission, requestPresence } = useGeofencing(venue?.lat, venue?.lng);
   const { subscribeToPush } = usePushNotifications();
 
@@ -336,9 +336,9 @@ function VenuePageInner(props: { params: Promise<{ city: string; neighborhood: s
                 </p>
               </>
             )}
-            {presenceSynced && onlineCount > 1 && (
+            {presenceSynced && onlineCount > 0 && (
               <p className="text-blue-600 text-xs font-semibold">
-                {onlineCount - 1} autre{onlineCount > 2 ? 's' : ''} personne{onlineCount > 2 ? 's' : ''} sur cette page en ce moment
+                {onlineCount} membre{onlineCount > 1 ? 's' : ''} en ligne en ce moment
               </p>
             )}
             {joinError && (
@@ -542,6 +542,11 @@ function EventsTab({ venueId, venueSlug, isMember, userId, onOpenChat }: { venue
       console.error('[join event]', error.message);
       setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, current_participants: Math.max(0, ev.current_participants - 1) } : ev));
       setParticipations(prev => { const n = new Set(prev); n.delete(eventId); return n; });
+      // Capacité verrouillée en base (events_hardening) : la dernière place
+      // vient d'être prise par quelqu'un d'autre.
+      if (/event_full/i.test(error.message)) {
+        alert('Trop tard, cet event vient de se remplir !');
+      }
     }
   };
 

@@ -69,6 +69,8 @@ export default function CreateEventClient() {
   const [startAt, setStartAt] = useState('');
   const [duration, setDuration] = useState(60);
   const [maxParticipants, setMaxParticipants] = useState(4);
+  // "On est déjà N" : amis présents sans compte, comptés dans la jauge
+  const [companions, setCompanions] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -109,6 +111,14 @@ export default function CreateEventClient() {
     setLoading(true);
     setError('');
 
+    if (companions >= maxParticipants) {
+      setError('Tes accompagnateurs remplissent déjà l\'event : augmente le nombre de places.');
+      setLoading(false);
+      return;
+    }
+
+    // current_participants est fixé par le serveur (events_hardening) :
+    // accompagnateurs déclarés + participations réelles via trigger.
     const { data: newEvent, error: insertError } = await supabase.from('events').insert({
       venue_id: venueId,
       creator_id: user.id,
@@ -117,7 +127,7 @@ export default function CreateEventClient() {
       start_time: startTime,
       duration_minutes: duration,
       max_participants: maxParticipants,
-      current_participants: 0, // le trigger compte via event_participants
+      companions,
     }).select('id').single();
 
     if (insertError || !newEvent) {
@@ -279,17 +289,30 @@ export default function CreateEventClient() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-600 ml-1">Places disponibles</label>
-          <input
-            type="number"
-            min={2} max={20}
-            value={maxParticipants}
-            onChange={e => setMaxParticipants(Number(e.target.value))}
-            required
-            className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-slate-600 ml-1">Places disponibles</label>
+            <input
+              type="number"
+              min={2} max={20}
+              value={maxParticipants}
+              onChange={e => setMaxParticipants(Number(e.target.value))}
+              required
+              className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-slate-600 ml-1">Déjà avec toi</label>
+            <input
+              type="number"
+              min={0} max={Math.max(0, maxParticipants - 1)}
+              value={companions}
+              onChange={e => setCompanions(Math.max(0, Number(e.target.value)))}
+              className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 transition-colors text-slate-900"
+            />
+          </div>
         </div>
+        <p className="text-[11px] text-slate-400 -mt-3 ml-1">« Déjà avec toi » = tes accompagnateurs sans compte, comptés dans la jauge dès la création.</p>
 
         {error && (
           <p className="text-red-500 text-sm text-center">{error}</p>
