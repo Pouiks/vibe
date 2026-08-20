@@ -5,8 +5,9 @@ import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { useGeofencing } from '@/modules/venue/useGeofencing';
 import { supabase } from '@/core/supabase/client';
-import { AlertCircle, ArrowLeft, Zap, CalendarDays, Sparkles } from 'lucide-react';
+import { AlertCircle, Zap, CalendarDays, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { BackButton } from '@/components/BackButton';
 
 const DURATIONS = [
   { value: 30, label: '30 min' },
@@ -31,7 +32,7 @@ export default function CreateEventClient() {
   const searchParams = useSearchParams();
   const venueId = searchParams.get('venue_id');
   const venueSlug = searchParams.get('slug');
-  useSwipeBack();
+  useSwipeBack(venueSlug ? `/l/${venueSlug}` : '/');
 
   // Le statut "sur place" est re-vérifié pour CE lieu (et plus hérité d'un
   // autre spot) : la géoloc tourne ici aussi, avec le même opt-in que le
@@ -176,9 +177,7 @@ export default function CreateEventClient() {
 
   return (
     <div className="min-h-screen p-6 flex flex-col bg-slate-50">
-      <Link href={venueSlug ? `/l/${venueSlug}` : '/'} className="text-slate-500 mb-6 w-fit hover:text-slate-900 flex items-center gap-1">
-        <ArrowLeft className="w-4 h-4" /> Retour
-      </Link>
+      <BackButton fallbackHref={venueSlug ? `/l/${venueSlug}` : '/'} className="text-slate-500 mb-6 w-fit hover:text-slate-900 inline-flex items-center gap-1 text-sm" />
 
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold mb-2 text-slate-900">Créer un event</h1>

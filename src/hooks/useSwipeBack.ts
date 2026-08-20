@@ -2,37 +2,45 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function useSwipeBack(threshold = 70) {
+// Retour "intelligent" partagé par le geste et les flèches : l'écran
+// précédent s'il existe, sinon la page de repli (deep link, QR scanné
+// depuis l'appareil photo → l'historique est vide, ne pas sortir de l'app).
+export function goBack(
+  router: { back: () => void; replace: (href: string) => void },
+  fallbackHref = '/'
+) {
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    router.back();
+  } else {
+    router.replace(fallbackHref);
+  }
+}
+
+// Geste "app native" : glisser du bord gauche vers la droite = retour.
+export function useSwipeBack(fallbackHref = '/', enabled = true) {
   const router = useRouter();
 
   useEffect(() => {
+    if (!enabled) return;
+
     let startX = 0;
     let startY = 0;
-    let endX = 0;
 
     const handleTouchStart = (e: TouchEvent) => {
-      // Initialize touch positions
       startX = e.changedTouches[0].screenX;
       startY = e.changedTouches[0].screenY;
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      endX = e.changedTouches[0].screenX;
-      const endY = e.changedTouches[0].screenY;
-      
-      const deltaX = endX - startX;
-      const deltaY = Math.abs(endY - startY);
+      const deltaX = e.changedTouches[0].screenX - startX;
+      const deltaY = Math.abs(e.changedTouches[0].screenY - startY);
 
-      // Conditions for Swipe-To-Back:
-      // 1. Gesture started from the extreme left edge (<= 40 pixels from edge)
-      // 2. Swiped to the right further than threshold (e.g. 70px)
-      // 3. Movement was mostly horizontal (not much vertical scroll variance)
-      if (startX <= 40 && deltaX > threshold && deltaY < 60) {
-        router.back();
+      // Départ depuis le bord gauche (≤40 px), mouvement franc et horizontal
+      if (startX <= 40 && deltaX > 70 && deltaY < 60) {
+        goBack(router, fallbackHref);
       }
     };
 
-    // Add passive listeners to not degrade scroll performance
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
@@ -40,5 +48,5 @@ export function useSwipeBack(threshold = 70) {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [router, threshold]);
+  }, [router, fallbackHref, enabled]);
 }

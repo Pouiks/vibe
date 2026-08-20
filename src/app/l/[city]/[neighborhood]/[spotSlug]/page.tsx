@@ -7,7 +7,8 @@ import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/core/supabase/client';
-import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, ArrowLeft, Trash2, Sparkles, MessageCircle } from 'lucide-react';
+import { MapPin, ShieldAlert, Send, Info, Crown, Plus, Calendar, Trash2, Sparkles, MessageCircle } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 import { formatEventTiming, formatDuration } from '@/core/datetime';
 import { track } from '@/core/analytics';
 import Link from 'next/link';
@@ -254,9 +255,7 @@ function VenuePageInner(props: { params: Promise<{ city: string; neighborhood: s
       <header className="shrink-0 bg-slate-50/95 backdrop-blur-md border-b border-slate-200 z-20 px-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between py-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Link href="/" className="shrink-0 p-1.5 -ml-1 text-slate-500 active:text-slate-900">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
+            <BackButton label="" className="shrink-0 p-1.5 -ml-1 text-slate-500 active:text-slate-900 inline-flex items-center" />
             <div className="min-w-0">
               <h1 className="font-bold text-base text-slate-900 flex items-center gap-1.5 min-w-0">
                 <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />

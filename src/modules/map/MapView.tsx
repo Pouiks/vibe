@@ -31,11 +31,13 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
   ],
 };
 
+// Palette carte alignée sur la charte : corail de marque pour le sport,
+// teintes chaudes/neutres pour le reste (plus d'indigo hors charte)
 const CATEGORY_COLORS: Record<string, string> = {
   sport: '#ff684f',
-  cafe: '#fbbf24',
-  bar: '#c084fc',
-  other: '#818cf8',
+  cafe: '#f59e0b',
+  bar: '#a855f7',
+  other: '#10b981',
 };
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -110,7 +112,8 @@ export default function MapView({
         data: { type: 'FeatureCollection', features: [] },
       });
 
-      // Heatmap layer (based on scans_count)
+      // Heatmap : pondérée par le nombre de membres ACTUELS (scans_count est
+      // resynchronisé et décrémenté par map_truth.sql), rampe corail de marque
       map.addLayer({
         id: 'venues-heat',
         type: 'heatmap',
@@ -122,12 +125,11 @@ export default function MapView({
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 20, 15, 40],
           'heatmap-color': [
             'interpolate', ['linear'], ['heatmap-density'],
-            0, 'rgba(129,140,248,0)',
-            0.15, 'rgba(129,140,248,0.25)',
-            0.3, 'rgba(167,139,250,0.45)',
-            0.5, 'rgba(251,191,36,0.55)',
-            0.7, 'rgba(248,113,113,0.65)',
-            1, 'rgba(244,63,94,0.8)',
+            0, 'rgba(255,138,115,0)',
+            0.2, 'rgba(255,138,115,0.25)',
+            0.45, 'rgba(255,104,79,0.4)',
+            0.7, 'rgba(232,73,47,0.55)',
+            1, 'rgba(204,58,34,0.7)',
           ],
           'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.7, 16, 0],
         },
@@ -301,8 +303,8 @@ export default function MapView({
               <h3 className="font-bold text-sm text-slate-900 truncate">{selected.name}</h3>
               <p className="text-[11px] text-slate-500 truncate">
                 {selected.neighborhood ? `${selected.neighborhood} · ` : ''}
-                {selected.scans_count ?? 0} scan{(selected.scans_count ?? 0) > 1 ? 's' : ''}
-                {selected.is_unlocked ? ' · ✓ membre' : ''}
+                {selected.scans_count ?? 0} membre{(selected.scans_count ?? 0) > 1 ? 's' : ''}
+                {selected.is_unlocked ? ' · ✓ rejoint' : ''}
               </p>
             </div>
           </div>
@@ -310,7 +312,7 @@ export default function MapView({
             <button
               onClick={() => router.push(`/l/${selected.slug}`)}
               className="bg-blue-600 text-white text-xs font-semibold py-2 px-3.5 rounded-xl active:scale-95">
-              Découvrir
+              {selected.is_unlocked ? 'Ouvrir le chat' : 'Voir le spot'}
             </button>
             <button onClick={() => setSelected(null)} className="p-1.5 text-slate-400 active:text-slate-600" aria-label="Fermer">
               <X className="w-4 h-4" />

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 
 export const metadata = {
   title: 'Confidentialité',
@@ -9,9 +9,7 @@ export default function ConfidentialitePage() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 flex justify-center">
       <div className="w-full max-w-lg">
-        <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6 text-sm">
-          <ArrowLeft className="w-4 h-4" /> Retour
-        </Link>
+        <BackButton withSwipe className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6 text-sm" />
 
         <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Politique de confidentialité</h1>
         <p className="text-xs text-slate-400 mb-8">Dernière mise à jour : août 2026</p>

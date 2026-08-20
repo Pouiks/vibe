@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { supabase } from '@/core/supabase/client';
-import { ArrowLeft, ShieldAlert, Sparkles, QrCode, UserCheck, MessageCircle, CalendarDays, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Sparkles, QrCode, UserCheck, MessageCircle, CalendarDays, RefreshCw } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 
 interface VenueStats {
   venue_id: string;
@@ -84,9 +85,7 @@ export default function AdminStatsPage() {
     <div className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-lg mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <Link href="/" className="text-slate-500 hover:text-slate-900 flex items-center gap-1 text-sm">
-            <ArrowLeft className="w-4 h-4" /> Retour
-          </Link>
+          <BackButton withSwipe className="text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 text-sm" />
           <button onClick={load} disabled={loading} className="p-2 text-slate-400 active:text-blue-600 disabled:opacity-50" title="Rafraîchir">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>

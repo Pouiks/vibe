@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/core/supabase/client';
+import { FullScreenLoader } from '@/components/FullScreenLoader';
 
 export default function ConfirmClient() {
   const router = useRouter();
@@ -52,12 +53,5 @@ export default function ConfirmClient() {
     };
   }, [router, searchParams]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="animate-pulse flex flex-col items-center">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-sm font-medium tracking-widest text-blue-600 uppercase">Validation en cours...</p>
-      </div>
-    </div>
-  );
+  return <FullScreenLoader label="Validation en cours..." />;
 }

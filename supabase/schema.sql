@@ -1,7 +1,11 @@
+-- ⚠ FICHIER DESTRUCTEUR : rejouer ce fichier DROP toutes les tables du
+-- produit (données perdues). Réservé à une base neuve. Ordre complet des
+-- migrations : voir supabase/README.md.
 BEGIN;
 
 -- 0. CLEANUP (Drop tables and functions to allow rebuild)
-DROP EXTENSION IF EXISTS pg_cron CASCADE;
+-- NB : ne PAS drop pg_cron ici — cela détruirait les jobs planifiés
+-- (rappels d'events, purges RGPD) créés par les migrations suivantes.
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
 DROP TRIGGER IF EXISTS on_venue_scanned ON public.channel_subscriptions CASCADE;
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;

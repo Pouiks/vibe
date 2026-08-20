@@ -7,7 +7,8 @@ import { supabase } from '@/core/supabase/client';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuth } from '@/modules/auth/useAuth';
-import { Crown, ArrowLeft, Save, Bell, BellOff, LogOut, Check, Download, Trash2, Moon, Sun } from 'lucide-react';
+import { Crown, Save, Bell, BellOff, LogOut, Check, Download, Trash2, Moon, Sun } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 
 interface MySpot { venue_id: string; muted: boolean; name: string; slug: string }
 
@@ -206,9 +207,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen p-6 bg-slate-50 relative flex flex-col items-center">
       <div className="w-full max-w-sm">
-        <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6">
-          <ArrowLeft className="w-4 h-4" /> Retour
-        </Link>
+        <BackButton className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6 text-sm" />
         
         <div className="bg-card shadow-sm border border-slate-200 rounded-2xl p-6 flex flex-col items-center text-center mb-8 relative overflow-hidden">
            <div className="bg-blue-50 p-4 rounded-full mb-4">

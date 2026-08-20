@@ -17,6 +17,7 @@ interface Venue {
   category: string;
   city_slug: string;
   neighborhood: string | null;
+  photo_url: string | null;
 }
 
 interface MyEvent {
@@ -103,7 +104,7 @@ export default function Home() {
       try {
         const { data } = await supabase
           .from('venues')
-          .select('id, slug, name, category, city_slug, neighborhood')
+          .select('id, slug, name, category, city_slug, neighborhood, photo_url')
           .order('created_at', { ascending: false });
         if (data) setVenues(data);
       } catch (err) {
@@ -230,9 +231,15 @@ export default function Home() {
                         className="bg-card shadow-sm border border-slate-200 p-3.5 rounded-2xl flex items-center justify-between active:scale-[0.98] transition-transform"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 relative flex items-center justify-center">
-                            <span className="text-lg">{CATEGORY_ICONS[v.category] || '📍'}</span>
-                          </div>
+                          {/* Règle unique de vignette : photo du lieu si présente, sinon emoji de catégorie */}
+                          {v.photo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={v.photo_url} alt="" className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-center shrink-0">
+                              <span className="text-lg">{CATEGORY_ICONS[v.category] || '📍'}</span>
+                            </div>
+                          )}
                           <div className="flex flex-col">
                             <h3 className="font-bold text-[14px] text-slate-900">{v.name}</h3>
                             <p className="text-[11px] text-slate-400 capitalize">{v.neighborhood ? `${v.neighborhood} · ` : ''}{v.category}</p>
