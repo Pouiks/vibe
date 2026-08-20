@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "vibe",
   "version": "0.1.0",
   "private": true,
@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "qr": "node scripts/generate-qr.mjs",
+    "e2e": "node scripts/e2e.mjs",
     "venue": "node scripts/create-venue.mjs"
   },
   "dependencies": {
