@@ -6,30 +6,66 @@ import maplibregl from 'maplibre-gl';
 import { X } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const MAP_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '&copy; OpenStreetMap contributors',
-    },
-  },
-  layers: [
-    {
-      id: 'osm-tiles',
-      type: 'raster',
-      source: 'osm',
-      paint: {
-        'raster-saturation': 0,
-        'raster-brightness-min': 0.2,
-        'raster-brightness-max': 1.0,
-        'raster-contrast': 0.05,
+// Le fond de carte suit le thème de l'app (choisi au montage) : tuiles CARTO
+// sombres — éclaircies pour rester lisibles — en dark, OSM en clair.
+function isLightTheme() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('light');
+}
+
+function buildMapStyle(): maplibregl.StyleSpecification {
+  if (isLightTheme()) {
+    return {
+      version: 8,
+      sources: {
+        base: {
+          type: 'raster',
+          tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          attribution: '&copy; OpenStreetMap contributors',
+        },
+      },
+      layers: [{
+        id: 'base-tiles',
+        type: 'raster',
+        source: 'base',
+        paint: {
+          'raster-saturation': 0,
+          'raster-brightness-min': 0.2,
+          'raster-brightness-max': 1.0,
+          'raster-contrast': 0.05,
+        },
+      }],
+    };
+  }
+  return {
+    version: 8,
+    sources: {
+      base: {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png',
+          'https://b.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png',
+          'https://c.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png',
+        ],
+        tileSize: 256,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
       },
     },
-  ],
-};
+    layers: [{
+      id: 'base-tiles',
+      type: 'raster',
+      source: 'base',
+      paint: {
+        // "Sombre mais lumineux" : on relève les noirs et le contraste pour
+        // garder rues et quartiers lisibles
+        'raster-brightness-min': 0.18,
+        'raster-brightness-max': 1.0,
+        'raster-contrast': 0.1,
+        'raster-saturation': -0.1,
+      },
+    }],
+  };
+}
 
 // Palette carte alignée sur la charte : corail de marque pour le sport,
 // teintes chaudes/neutres pour le reste (plus d'indigo hors charte)
@@ -93,7 +129,7 @@ export default function MapView({
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: MAP_STYLE,
+      style: buildMapStyle(),
       center: center as [number, number],
       zoom: initialZoom,
       attributionControl: false,
@@ -217,8 +253,8 @@ export default function MapView({
           'text-max-width': 10,
         },
         paint: {
-          'text-color': '#1e293b',
-          'text-halo-color': 'rgba(255,255,255,0.9)',
+          'text-color': isLightTheme() ? '#1e293b' : '#e4e4e7',
+          'text-halo-color': isLightTheme() ? 'rgba(255,255,255,0.9)' : 'rgba(9,9,11,0.85)',
           'text-halo-width': 2,
         },
       });

@@ -21,6 +21,9 @@ Ils sont globalement idempotents (rejouables), sauf mention contraire.
 | 14 | `coherence_fixes.sql` | FK owner_id, stats hors chats d'events, purge participations | |
 | 15 | `map_truth.sql` | scans_count = membres réels (décrément + resync) | |
 | 16 | `view_add_tagline.sql` | Recrée venues_with_coords avec tagline | |
+| 17 | `events_hardening.sql` | Accompagnateurs, colonnes sensibles verrouillées, capacité en base | |
+| 18 | `analytics_uniques.sql` | Stats : visiteurs uniques (DROP + CREATE de admin_venue_stats) | |
+| 19 | `venue_suggestions.sql` | Suggestions de lieux par les membres | |
 
 Fichiers supprimés : `add_montcalm_and_events.sql` (obsolète — colonnes lat/lng
 disparues, et il recréait une policy que secure_scan_and_rls.sql supprime

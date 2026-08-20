@@ -25,6 +25,11 @@ Toute nouvelle trouvaille d'audit s'ajoute ici le jour même.
 - theme-color contradictoires (#FF684F vs #09090b) — `fd20e9c`
 - Échappement HTML des affiches, JSON-LD anti-XSS, Suspense sur useSearchParams — `fd20e9c`/`8f74335`
 - `scans_count` cumulatif (heatmap trompeuse) → membres actuels — `2526e4c` + `map_truth.sql`
+- INSERT events non protégé (compteur/notified_at forgés) + course dernière place + DEFAULT 1 — `events_hardening.sql` (+ feature accompagnateurs)
+- Dédup optimiste des messages par uuid client (fini le télescopage de contenus identiques)
+- sw.js notificationclick : focus + navigate par pathname (plus de 2e fenêtre)
+- Compteurs "en ligne" = membres connectés uniquement (décision Virgile 2026-08-21)
+- Carte sombre lumineuse (tuiles CARTO éclaircies) suivant le thème de l'app
 - Palette carte hors charte (indigo), "Découvrir" → verrou — `2526e4c`
 - Swipe-back incohérent/absent, flèches ≠ geste, sortie d'app sur historique vide — `2526e4c`
 - Vue `venues_with_coords` sans tagline (liste admin vide en silence) — `9ae3819` + `view_add_tagline.sql`
@@ -37,18 +42,12 @@ Toute nouvelle trouvaille d'audit s'ajoute ici le jour même.
 | P | Trouvaille | Détail |
 |---|-----------|--------|
 | 1 | **Tests de parcours UI** | Partiellement couvert : `npm run e2e` (scripts/e2e.mjs) rejoue le cycle de vie complet côté backend contre la vraie base (scan, RLS, chat, events, départ, cascades — 18 assertions) et valide les migrations. Reste la couche navigateur (login OTP, garde d'auth, rendu) → Playwright. |
-| 2 | **INSERT events non protégé** | Un membre peut créer un event avec `current_participants: 999` (affiché complet) ou `notified_at`/`reminded_at` pré-remplis (tue notif+rappel). REVOKE INSERT colonne ou trigger de normalisation. |
-| 3 | **Course "dernière place" d'un event** | Deux joins simultanés sur la dernière place passent tous les deux (pas de contrôle `max_participants` en base) → `5/4`. Contrainte ou RPC. |
-| 4 | `events.current_participants DEFAULT 1` | Piège : tout insert hors app démarre à 1 puis +1. → DEFAULT 0. |
-| 5 | Dédup optimiste des messages par contenu | Deux "ok" simultanés : le message de l'autre remplace le mien. → id client (uuid) dans l'insert. |
-| 6 | sw.js `notificationclick` | `client.url.includes(url)` rate l'onglet ouvert si le query diffère → 2e fenêtre + 2e presence. Comparer les pathnames. |
-| 7 | Compteurs "en ligne" comptent les anonymes non-membres | Vrai par définition ("sur cette page") mais discutable sur l'écran verrouillé. Décision produit à trancher. |
+| 5bis | KPI "visiteurs uniques" | ✅ Fait (analytics_uniques.sql + stats admin) : visites ET visiteurs distincts via anon_id. |
 | 8 | Trigger participants défini en 2 versions (add_event_participants vs secure_scan) | Documenté au README (ne pas rejouer) ; à consolider dans un seul fichier. |
 | 9 | `scan_success` compte les re-scans | Le KPI "Scans" admin ≠ nouveaux membres. RPC pourrait renvoyer inserted true/false. |
 | 10 | Design system reste partiel | Spinners inline restants, 3 conventions disabled, CATEGORY_ICONS défini 3×, classe `hide-scrollbar` inexistante, `.glass` mort, dégradé du logo en 2 variantes. |
 | 11 | `push_subscriptions` sans purge | Endpoints morts conservés (hors 404/410) jusqu'à purge du compte à 24 mois. |
 | 12 | `last_activity_at` mal nommé et jamais affiché | = date du dernier scan uniquement. Renommer ou brancher sur les messages. |
-| 13 | Carte : tuiles OSM claires sous UI sombre | Chantier style de carte sombre — assumé pour l'instant. |
 | 14 | Login OTP 8 chiffres codé en dur | Doit rester aligné avec la config Supabase (fonctionne aujourd'hui). Pas de bouton de validation manuel si la longueur change. |
 | 15 | `.env` : `ADMIN_VENUE_PASSWORD`, `NGROK_AUTHTOKEN` orphelins | À supprimer du .env (RESEND_API_KEY sert au SMTP Supabase, hors code). |
 

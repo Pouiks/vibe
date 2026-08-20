@@ -11,6 +11,7 @@ interface VenueStats {
   name: string;
   slug: string;
   qr_visits_30d: number;
+  qr_visitors_30d?: number;
   scans_30d: number;
   members: number;
   active_users_7d: number;
@@ -127,7 +128,10 @@ export default function AdminStatsPage() {
                   <div className="grid grid-cols-3 gap-2 text-center mb-2">
                     <div>
                       <div className="text-base font-extrabold text-slate-900">{s.qr_visits_30d} → {s.scans_30d}</div>
-                      <div className="text-[9px] text-slate-400 uppercase tracking-wide">Visites → Scans ({pct(s.scans_30d, s.qr_visits_30d)})</div>
+                      <div className="text-[9px] text-slate-400 uppercase tracking-wide">
+                        Visites → Scans ({pct(s.scans_30d, s.qr_visits_30d)})
+                        {s.qr_visitors_30d != null && <> · {s.qr_visitors_30d} unique{s.qr_visitors_30d > 1 ? 's' : ''}</>}
+                      </div>
                     </div>
                     <div>
                       <div className="text-base font-extrabold text-slate-900">{s.members}</div>

@@ -182,43 +182,58 @@ async function run() {
     assert(new Date(data.last_read_at).getTime() === new Date(stamp).getTime(), 'last_read_at non persisté (GRANT manquant ?)');
   });
 
-  console.log('\n4. Events');
-  await step('création d\'un event + créateur participant (compteur = 1)', async () => {
+  console.log('\n4. Events (durcissement events_hardening)');
+  await step('création avec 1 accompagnateur : compteur = accompagnateur + créateur', async () => {
     const { data, error } = await userA().from('events').insert({
       venue_id: ctx.venueId, creator_id: ctx.users.owner.id,
       title: 'Match E2E', description: 'test', start_time: new Date(Date.now() + 3600_000).toISOString(),
-      duration_minutes: 60, max_participants: 2, current_participants: 0,
+      duration_minutes: 60, max_participants: 3, companions: 1,
+      // tentatives de forge : le serveur doit les écraser
+      current_participants: 999, notified_at: new Date().toISOString(),
     }).select('id').single();
     assert(!error && data, `insert event: ${error?.message}`);
     ctx.eventId = data.id;
     const { error: joinError } = await userA().from('event_participants')
       .insert({ event_id: ctx.eventId, user_id: ctx.users.owner.id });
     assert(!joinError, `créateur participant: ${joinError?.message}`);
-    const { data: ev } = await admin.from('events').select('current_participants').eq('id', ctx.eventId).single();
-    assert(ev.current_participants === 1, `compteur=${ev.current_participants}, attendu 1 (trigger)`);
+    const { data: ev } = await admin.from('events')
+      .select('current_participants, notified_at').eq('id', ctx.eventId).single();
+    assert(ev.current_participants === 2, `compteur=${ev.current_participants}, attendu 2 (1 accompagnateur + créateur)`);
+    assert(ev.notified_at === null, 'notified_at forgé accepté (trigger sanitize manquant ?)');
   });
 
-  await step('un membre rejoint l\'event (compteur = 2) et écrit dans son chat', async () => {
+  await step('un membre prend la dernière place (compteur = 3) et écrit dans le chat d\'event', async () => {
     const b = ctx.users['membre-b'];
     const { error } = await b.client.from('event_participants').insert({ event_id: ctx.eventId, user_id: b.id });
     assert(!error, `join event: ${error?.message}`);
     const { data: ev } = await admin.from('events').select('current_participants').eq('id', ctx.eventId).single();
-    assert(ev.current_participants === 2, `compteur=${ev.current_participants}, attendu 2`);
+    assert(ev.current_participants === 3, `compteur=${ev.current_participants}, attendu 3`);
     const { error: msgError } = await b.client.from('messages')
       .insert({ venue_id: ctx.venueId, event_id: ctx.eventId, user_id: b.id, content: 'message chat event' });
     assert(!msgError, `message event: ${msgError?.message}`);
   });
 
-  // Limite connue (AUDIT 🔶3) : pas de contrôle max_participants en base
-  {
+  await step('event complet : la place de trop est refusée en base (event_full)', async () => {
     const c = ctx.users['curieux'];
     const { error: joinSpotErr } = await c.client.rpc('join_spot', { p_slug: SLUG, p_token: ctx.token });
-    if (!joinSpotErr) {
-      const { error } = await c.client.from('event_participants').insert({ event_id: ctx.eventId, user_id: c.id });
-      if (!error) warn('sur-remplissage event', '3e participant accepté sur un event 2 places (AUDIT 🔶3, non corrigé)');
-      await admin.from('event_participants').delete().eq('event_id', ctx.eventId).eq('user_id', c.id);
-    }
-  }
+    assert(!joinSpotErr, `join spot C: ${joinSpotErr?.message}`);
+    const { error } = await c.client.from('event_participants').insert({ event_id: ctx.eventId, user_id: c.id });
+    assertErr(error, 'sur-remplissage accepté');
+    assert(/event_full/i.test(error.message), `erreur inattendue: ${error.message}`);
+  });
+
+  await step('suggestion de lieu : un membre propose, l\'admin lit, un autre membre ne lit pas', async () => {
+    const c = ctx.users['curieux'];
+    const { error } = await c.client.from('venue_suggestions')
+      .insert({ user_id: c.id, content: `Suggestion E2E ${RUN}` });
+    assert(!error, `insert suggestion: ${error?.message}`);
+    const { data: asAdmin } = await admin.from('venue_suggestions').select('id, content').eq('user_id', c.id);
+    assert((asAdmin ?? []).length === 1, 'admin ne lit pas la suggestion');
+    const b = ctx.users['membre-b'];
+    const { data: asOther } = await b.client.from('venue_suggestions').select('id').eq('user_id', c.id);
+    assert((asOther ?? []).length === 0, `un autre membre lit ${asOther?.length} suggestion(s) (RLS)`);
+    await admin.from('venue_suggestions').delete().eq('user_id', c.id);
+  });
 
   console.log('\n5. Quitter le spot');
   await step('quitter purge les participations aux events (trigger coherence_fixes)', async () => {
@@ -230,7 +245,7 @@ async function run() {
       .select('user_id').eq('event_id', ctx.eventId).eq('user_id', b.id);
     assert((parts ?? []).length === 0, 'participation survivante après départ (trigger manquant ?)');
     const { data: ev } = await admin.from('events').select('current_participants').eq('id', ctx.eventId).single();
-    assert(ev.current_participants === 1, `compteur=${ev.current_participants}, attendu 1 après départ`);
+    assert(ev.current_participants === 2, `compteur=${ev.current_participants}, attendu 2 après départ (accompagnateur + créateur)`);
   });
 
   await step('après départ, plus aucune lecture du chat (RLS)', async () => {
