@@ -26,6 +26,7 @@ export default function AdminVenuesPage() {
   const [city, setCity] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
   const [category, setCategory] = useState('sport');
+  const [tagline, setTagline] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -90,7 +91,7 @@ export default function AdminVenuesPage() {
       const res = await fetch('/api/admin/venues', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, city, neighborhood, category, lat, lng, photo_url }),
+        body: JSON.stringify({ name, city, neighborhood, category, lat, lng, photo_url, tagline: tagline.trim() || null }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -99,7 +100,7 @@ export default function AdminVenuesPage() {
       }
       setCreated(data);
     } catch {
-      setError('Erreur réseau. Réessayez.');
+      setError('Erreur réseau. Réessaie.');
     } finally {
       setLoading(false);
     }
@@ -210,6 +211,14 @@ export default function AdminVenuesPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-slate-600 ml-1">Accroche de l&apos;affiche <span className="text-slate-400 font-normal">(optionnel)</span></label>
+          <input type="text" maxLength={120} value={tagline} onChange={e => setTagline(e.target.value)}
+            placeholder="Ex: Le spot du quartier pour se retrouver."
+            className="w-full bg-card border border-slate-200 px-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-slate-900" />
+          <p className="text-[11px] text-slate-400 ml-1">Affichée sous « Scanne-moi ! » sur l&apos;affichette QR. Vide = phrase générique de la catégorie.</p>
         </div>
 
         <div className="flex flex-col gap-2">

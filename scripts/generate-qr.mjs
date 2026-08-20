@@ -1,4 +1,4 @@
-// Génère les affichettes QR imprimables (A5) de chaque lieu, avec le token de
+﻿// Génère les affichettes QR imprimables (A5) de chaque lieu, avec le token de
 // scan lu en base. Sortie dans qr-output/ (gitignoré : les tokens sont des
 // secrets d'accès aux spots).
 //
@@ -45,13 +45,21 @@ const TAGLINES = {
 
 const logoDataUri = `data:image/png;base64,${readFileSync(resolve(root, 'public/icons/icon-192x192.png')).toString('base64')}`;
 
+// Tout texte issu de la base (nom, accroche saisie par l'admin) est échappé :
+// un « & » ou « < » ne doit jamais casser l'affiche imprimée.
+const esc = (s) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// Règle unique de l'accroche : celle du lieu, sinon la phrase de catégorie
+const taglineFor = (venue) => esc(venue.tagline || TAGLINES[venue.category] || TAGLINES.other);
+
 function posterHtml(venue, qrSvg) {
-  const tagline = TAGLINES[venue.category] || TAGLINES.other;
+  const tagline = taglineFor(venue);
   return `<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>QR · ${venue.name}</title>
+<title>QR · ${esc(venue.name)}</title>
 <style>
   @page { size: A5 portrait; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -89,7 +97,92 @@ function posterHtml(venue, qrSvg) {
     <div><b>2.</b> Connecte-toi : pseudo anonyme automatique</div>
     <div><b>3.</b> Discute et rejoins les events de ce lieu</div>
   </div>
-  <div class="venue">${venue.name} · ${venue.city_slug}${venue.neighborhood ? ' · ' + venue.neighborhood : ''}</div>
+  <div class="venue">${esc(venue.name)} · ${esc(venue.city_slug)}${venue.neighborhood ? ' · ' + esc(venue.neighborhood) : ''}</div>
+</div>
+</body>
+</html>`;
+}
+
+// A6 (105 × 148 mm) : petit support, contenu condensé
+function posterA6Html(venue, qrSvg) {
+  const tagline = taglineFor(venue);
+  return `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>QR A6 · ${esc(venue.name)}</title>
+<style>
+  @page { size: A6 portrait; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; background: #f1f5f9; }
+  .poster {
+    width: 105mm; height: 148mm; background: #fff; color: #0f172a;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 8mm; border: 0.8mm solid #FF684F; border-radius: 4mm;
+  }
+  @media print { body { background: #fff; } .poster { border-radius: 0; } }
+  .brand { display: flex; align-items: center; gap: 2.5mm; }
+  .brand img { width: 8mm; height: 8mm; border-radius: 2mm; }
+  .brand span { font-size: 7mm; font-weight: 800; letter-spacing: 0.3mm; }
+  h1 { font-size: 6.5mm; margin-top: 5mm; }
+  .tagline { font-size: 3.6mm; color: #475569; margin-top: 2mm; }
+  .qr { position: relative; width: 62mm; height: 62mm; margin-top: 6mm; }
+  .qr svg { width: 100%; height: 100%; }
+  .qr .logo {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 13mm; height: 13mm; border-radius: 3mm; background: #fff; padding: 1.2mm;
+  }
+  .how { margin-top: 6mm; font-size: 3.4mm; color: #334155; }
+  .how b { color: #FF684F; }
+  .venue { margin-top: auto; font-size: 3.2mm; color: #94a3b8; }
+</style>
+</head>
+<body>
+<div class="poster">
+  <div class="brand"><img src="${logoDataUri}" alt=""><span>ATOUTE</span></div>
+  <h1>Scanne-moi&nbsp;!</h1>
+  <p class="tagline">${tagline}</p>
+  <div class="qr">${qrSvg}<img class="logo" src="${logoDataUri}" alt=""></div>
+  <p class="how"><b>Scanne</b> avec ton appareil photo, <b>connecte-toi</b>, discute.</p>
+  <div class="venue">${esc(venue.name)} · ${esc(venue.city_slug)}</div>
+</div>
+</body>
+</html>`;
+}
+
+// Sticker carré 80 × 80 mm : l'essentiel, pour poteau / table / vitrine
+function stickerHtml(venue, qrSvg) {
+  return `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Sticker · ${esc(venue.name)}</title>
+<style>
+  @page { size: 80mm 80mm; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; background: #f1f5f9; }
+  .sticker {
+    width: 80mm; height: 80mm; background: #fff; color: #0f172a;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 4mm; border: 0.8mm solid #FF684F; border-radius: 4mm;
+  }
+  @media print { body { background: #fff; } .sticker { border-radius: 0; } }
+  h1 { font-size: 5.5mm; display: flex; align-items: center; gap: 2mm; }
+  h1 img { width: 6.5mm; height: 6.5mm; border-radius: 1.5mm; }
+  .qr { position: relative; width: 54mm; height: 54mm; margin-top: 2.5mm; }
+  .qr svg { width: 100%; height: 100%; }
+  .qr .logo {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 11mm; height: 11mm; border-radius: 2.5mm; background: #fff; padding: 1mm;
+  }
+  .venue { margin-top: auto; font-size: 2.8mm; color: #94a3b8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="sticker">
+  <h1><img src="${logoDataUri}" alt="">Scanne-moi&nbsp;!</h1>
+  <div class="qr">${qrSvg}<img class="logo" src="${logoDataUri}" alt=""></div>
+  <div class="venue">${esc(venue.name)} · atoute.app</div>
 </div>
 </body>
 </html>`;
@@ -97,10 +190,20 @@ function posterHtml(venue, qrSvg) {
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-const { data: venues, error } = await supabase
+// tagline peut être absente tant que add_venue_tagline.sql n'a pas été
+// exécutée : on retombe alors sur les phrases de catégorie.
+let { data: venues, error } = await supabase
   .from('venues')
-  .select('slug, name, category, city_slug, neighborhood, venue_secrets(scan_token)')
+  .select('slug, name, category, tagline, city_slug, neighborhood, venue_secrets(scan_token)')
   .order('slug');
+
+if (error && /tagline/i.test(error.message)) {
+  console.warn('⚠ Colonne tagline absente (migration add_venue_tagline.sql non exécutée) : accroches génériques.');
+  ({ data: venues, error } = await supabase
+    .from('venues')
+    .select('slug, name, category, city_slug, neighborhood, venue_secrets(scan_token)')
+    .order('slug'));
+}
 
 if (error) {
   console.error('Erreur Supabase :', error.message);
@@ -109,6 +212,12 @@ if (error) {
 
 const outDir = resolve(root, 'qr-output');
 mkdirSync(outDir, { recursive: true });
+
+const FORMATS = [
+  { key: 'a5', label: 'A5', prefix: 'affiche-a5', render: posterHtml },
+  { key: 'a6', label: 'A6', prefix: 'affiche-a6', render: posterA6Html },
+  { key: 'sticker', label: 'Sticker 8 cm', prefix: 'sticker', render: stickerHtml },
+];
 
 const index = [];
 for (const venue of venues) {
@@ -120,20 +229,24 @@ for (const venue of venues) {
   const qrUrl = `${BASE_URL}/l/${venue.slug}?t=${secret.scan_token}`;
   // Correction d'erreur H : le QR reste lisible avec le logo par-dessus.
   const qrSvg = await QRCode.toString(qrUrl, { type: 'svg', errorCorrectionLevel: 'H', margin: 0 });
-  const file = `affiche-${venue.slug.replaceAll('/', '_')}.html`;
-  writeFileSync(resolve(outDir, file), posterHtml(venue, qrSvg));
-  index.push({ name: venue.name, slug: venue.slug, file, qr_url: qrUrl });
-  console.log(`✓ ${venue.slug} → qr-output/${file}`);
+  const files = {};
+  for (const fmt of FORMATS) {
+    const file = `${fmt.prefix}-${venue.slug.replaceAll('/', '_')}.html`;
+    writeFileSync(resolve(outDir, file), fmt.render(venue, qrSvg));
+    files[fmt.key] = file;
+  }
+  index.push({ name: venue.name, slug: venue.slug, files, qr_url: qrUrl });
+  console.log(`✓ ${venue.slug} → ${FORMATS.map(f => f.prefix).join(' / ')} (qr-output/)`);
 }
 
 writeFileSync(
   resolve(outDir, 'index.html'),
   `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Affichettes QR ATOUTE</title>
-<style>body{font-family:sans-serif;padding:2rem;max-width:640px;margin:auto}h1{font-size:1.4rem}li{margin:.5rem 0}</style></head>
-<body><h1>Affichettes QR : ouvrir puis Ctrl+P (format A5)</h1><ul>
-${index.map(v => `<li><a href="${v.file}">${v.name}</a> <small>(${v.slug})</small></li>`).join('\n')}
+<style>body{font-family:sans-serif;padding:2rem;max-width:640px;margin:auto}h1{font-size:1.4rem}li{margin:.75rem 0}small{color:#888}a{margin-right:.6rem}</style></head>
+<body><h1>Affichettes QR : ouvrir un format puis Ctrl+P (taille réelle, marges à 0)</h1><ul>
+${index.map(v => `<li><strong>${esc(v.name)}</strong> <small>(${esc(v.slug)})</small><br>${FORMATS.map(f => `<a href="${v.files[f.key]}">${f.label}</a>`).join(' ')}</li>`).join('\n')}
 </ul></body></html>`
 );
 writeFileSync(resolve(outDir, 'qr-codes.json'), JSON.stringify({ base_url: BASE_URL, venues: index }, null, 2));
 
-console.log(`\n${index.length} affichette(s) générée(s) dans qr-output/. Ouvre qr-output/index.html pour imprimer.`);
+console.log(`\n${index.length} lieu(x) × ${FORMATS.length} formats générés dans qr-output/. Ouvre qr-output/index.html pour imprimer.`);

@@ -15,14 +15,30 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+const APP_DESCRIPTION =
+  "L'app sociale de proximité : scanne le QR code d'un spot (terrain, bar, parc…), discute avec les gens sur place et organise des events.";
+
 export const metadata: Metadata = {
-  title: "ATOUTE | Connect in the real world",
-  description: "L'App'sociale de proximité. Scannez un QR Code, discutez et créez des événements éphémères autour de vous.",
+  metadataBase: new URL('https://atoute.app'),
+  title: {
+    default: 'ATOUTE — Le chat des gens sur place',
+    template: '%s | ATOUTE',
+  },
+  description: APP_DESCRIPTION,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "ATOUTE",
+  },
+  openGraph: {
+    type: 'website',
+    url: 'https://atoute.app',
+    siteName: 'ATOUTE',
+    title: 'ATOUTE — Le chat des gens sur place',
+    description: APP_DESCRIPTION,
+    locale: 'fr_FR',
+    images: [{ url: '/icons/icon-512x512.png', width: 512, height: 512, alt: 'ATOUTE' }],
   },
   icons: {
     icon: [
@@ -32,6 +48,19 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
+};
+
+// Données structurées pour le référencement (Google : type d'app, gratuité)
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'ATOUTE',
+  url: 'https://atoute.app',
+  description: APP_DESCRIPTION,
+  applicationCategory: 'SocialNetworkingApplication',
+  operatingSystem: 'Any',
+  inLanguage: 'fr',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
 };
 
 export default function RootLayout({
@@ -47,6 +76,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `try{if(localStorage.getItem('atoute_theme')==='light')document.documentElement.classList.add('light')}catch(e){}`,
           }}
+        />
+        {/* Échappement anti-XSS recommandé par la doc Next : aucun '<' brut */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD).replace(/</g, '\\u003c') }}
         />
         <AuthProvider>
           {children}
