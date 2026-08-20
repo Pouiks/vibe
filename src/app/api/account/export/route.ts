@@ -23,21 +23,34 @@ export async function GET() {
 
     const admin = getAdminSupabase();
 
-    const [profile, subscriptions, messages, events, participations, pushEndpoints] = await Promise.all([
+    const [profile, subscriptions, messages, reactions, events, participations, pushEndpoints] = await Promise.all([
       admin.from('profiles').select('username, first_name, age, gender, bio, created_at').eq('id', user.id).single(),
-      admin.from('channel_subscriptions').select('venue_id, muted, created_at, venues:venue_id(name, slug)').eq('user_id', user.id),
+      admin.from('channel_subscriptions').select('venue_id, muted, created_at, last_read_at, venues:venue_id(name, slug)').eq('user_id', user.id),
       admin.from('messages').select('content, created_at, venue_id, event_id, is_on_site').eq('user_id', user.id).order('created_at'),
+      admin.from('message_reactions').select('message_id, reaction_type, created_at').eq('user_id', user.id),
       admin.from('events').select('title, description, start_time, duration_minutes, max_participants, created_at').eq('creator_id', user.id),
       admin.from('event_participants').select('event_id, created_at').eq('user_id', user.id),
       admin.from('push_subscriptions').select('endpoint, created_at').eq('user_id', user.id),
     ]);
 
+    // Repli tant que la migration add_unread_tracking.sql (last_read_at)
+    // n'est pas passée : mieux vaut exporter les spots sans cette colonne
+    // que de perdre toute la section. Ciblé sur l'erreur de colonne pour ne
+    // pas masquer une vraie panne sous un export vide.
+    let subsData: unknown[] | null = subscriptions.data;
+    if (!subsData && /last_read_at/i.test(subscriptions.error?.message ?? '')) {
+      subsData = (await admin.from('channel_subscriptions')
+        .select('venue_id, muted, created_at, venues:venue_id(name, slug)')
+        .eq('user_id', user.id)).data;
+    }
+
     const payload = {
       export_date: new Date().toISOString(),
       account: { id: user.id, email: user.email, created_at: user.created_at },
       profile: profile.data,
-      spots_rejoints: subscriptions.data ?? [],
+      spots_rejoints: subsData ?? [],
       messages: messages.data ?? [],
+      reactions: reactions.data ?? [],
       events_crees: events.data ?? [],
       participations: participations.data ?? [],
       appareils_notifications: pushEndpoints.data ?? [],

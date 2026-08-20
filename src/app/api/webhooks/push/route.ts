@@ -78,9 +78,11 @@ export async function POST(req: Request) {
         .eq('event_id', message.event_id)
         .neq('user_id', message.user_id);
 
+      // Participation explicite à l'event : ces messages passent même si la
+      // cloche du spot est coupée (règle affichée dans le profil).
       const result = await sendPushToUsers(admin, {
         userIds: (participants || []).map(p => p.user_id),
-        title: `💬 ${event?.title || 'Event'} · ${venue?.name || 'un lieu'}`,
+        title: `💬 ${event?.title || 'Event'} · ${venue?.name || 'un spot'}`,
         body: message.content,
         url: `/l/${venue?.slug || ''}?tab=events`,
       });

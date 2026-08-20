@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, city, neighborhood, category, lat, lng, photo_url } = body ?? {};
+    const { name, city, neighborhood, category, lat, lng, photo_url, tagline } = body ?? {};
 
     const isLabel = (v: unknown): v is string =>
       typeof v === 'string' && v.trim().length > 0 && v.length <= 80;
@@ -45,6 +45,18 @@ export async function POST(req: Request) {
     }
     if (!CATEGORIES.includes(category)) {
       return NextResponse.json({ error: `Catégorie invalide. Valeurs possibles : ${CATEGORIES.join(', ')}.` }, { status: 400 });
+    }
+    // Accroche optionnelle de l'affichette QR (repli : phrase de catégorie)
+    let taglineValue: string | null = null;
+    if (tagline != null) {
+      if (typeof tagline !== 'string') {
+        return NextResponse.json({ error: 'Accroche invalide.' }, { status: 400 });
+      }
+      const trimmed = tagline.trim();
+      if (trimmed.length > 120) {
+        return NextResponse.json({ error: 'Accroche invalide (120 caractères max).' }, { status: 400 });
+      }
+      taglineValue = trimmed || null;
     }
     const latN = Number(lat);
     const lngN = Number(lng);
@@ -69,7 +81,7 @@ export async function POST(req: Request) {
     }
     const slug = parts.join('/');
 
-    const { error: insertError } = await admin.from('venues').insert({
+    const venueRow = {
       slug,
       name: name.trim(),
       category,
@@ -78,7 +90,14 @@ export async function POST(req: Request) {
       location: `SRID=4326;POINT(${lngN} ${latN})`, // EWKT : longitude d'abord
       owner_id: user.id,
       photo_url: photoUrl,
-    });
+    };
+
+    let { error: insertError } = await admin.from('venues').insert({ ...venueRow, tagline: taglineValue });
+    // Colonne tagline absente tant que add_venue_tagline.sql n'est pas
+    // exécutée : la création de lieu ne doit pas être bloquée pour autant.
+    if (insertError && /tagline/i.test(insertError.message)) {
+      ({ error: insertError } = await admin.from('venues').insert(venueRow));
+    }
 
     if (insertError) {
       if (insertError.code === '23505') {

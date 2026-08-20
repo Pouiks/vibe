@@ -19,6 +19,9 @@ export interface PushResult {
 
 // Sends a push to every endpoint of the given users and cleans up dead
 // endpoints (404/410). No cooldown here - callers decide the eligibility.
+// Règle produit : la cloche d'un spot (muted) coupe le chat du spot, mais
+// une participation explicite à un event (chat d'event, rappel) prime sur
+// la cloche - ces envois ciblés passent donc sans filtre muted.
 export async function sendPushToUsers(
   admin: SupabaseClient,
   opts: { userIds: string[]; title: string; body: string; url: string }
@@ -38,12 +41,15 @@ export async function sendPushToUsers(
     data: { url: opts.url },
   });
 
+  // sent = envois réellement acceptés par le service push, pas tentés
+  let sent = 0;
   await Promise.all(pushSubs.map(async (sub) => {
     try {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         payload
       );
+      sent++;
     } catch (err) {
       const statusCode = (err as { statusCode?: number }).statusCode;
       if (statusCode === 404 || statusCode === 410) {
@@ -52,7 +58,7 @@ export async function sendPushToUsers(
     }
   }));
 
-  return { sent: pushSubs.length };
+  return { sent };
 }
 
 // Notifies every eligible subscriber of a venue (not muted, outside the 30 s
@@ -98,15 +104,18 @@ export async function sendVenuePush(
     url: opts.url,
   });
 
-  if (sent === 0) {
-    return { sent: 0, skipped: subscribers.length - eligibleUserIds.length, message: 'No push endpoints' };
-  }
-
+  // Le cooldown est stampé dès qu'une tentative a eu lieu : un service push
+  // en panne (sent=0 avec endpoints présents) ne doit pas désarmer
+  // l'anti-spam et provoquer une rafale au rétablissement.
   await admin
     .from('channel_subscriptions')
     .update({ last_notified_at: new Date().toISOString() })
     .eq('venue_id', opts.venueId)
     .in('user_id', eligibleUserIds);
+
+  if (sent === 0) {
+    return { sent: 0, skipped: subscribers.length - eligibleUserIds.length, message: 'No deliveries (missing endpoints or push service errors)' };
+  }
 
   return { sent, skipped: subscribers.length - eligibleUserIds.length };
 }

@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
     const result = await sendVenuePush(admin, {
       venueId,
       excludeUserId: event.creator_id,
-      title: `🔥 Nouvel évent à ${venueName}`,
-      body: `${event.title} · ${timeLabel} (${event.max_participants} places)`,
+      title: `🔥 Nouvel event à ${venueName}`,
+      body: `${event.title} · ${timeLabel}`,
       url: `/l/${venueSlug}?tab=events`,
     });
 

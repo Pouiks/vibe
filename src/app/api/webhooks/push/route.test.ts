@@ -169,7 +169,8 @@ describe('POST /api/webhooks/push', () => {
     const payload = JSON.parse(sendNotificationMock.mock.calls[0][1]);
     expect(payload.title).toContain('3vs3 Basket');
     expect(payload.data.url).toBe('/l/paris/centre/spot?tab=events');
-    // Participants query must exclude the sender; no venue-wide cooldown stamp.
+    // Participants query must exclude the sender; participation explicite =
+    // pas de filtre muted ni de cooldown de spot pour les chats d'events.
     expect(admin.calls.event_participants[0]).toContainEqual({ method: 'neq', args: ['user_id', 'u1'] });
     expect(admin.calls.channel_subscriptions).toBeUndefined();
   });
