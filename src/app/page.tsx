@@ -26,6 +26,7 @@ interface MyEvent {
     id: string;
     title: string;
     start_time: string;
+    venue_id: string;
     current_participants: number;
     max_participants: number;
     venues: {
@@ -125,7 +126,7 @@ export default function Home() {
             event_id,
             created_at,
             events!inner (
-              id, title, start_time, current_participants, max_participants,
+              id, title, start_time, venue_id, current_participants, max_participants,
               venues (slug, name, category)
             )
           `)
@@ -137,6 +138,10 @@ export default function Home() {
     })();
   }, [user]);
 
+  // Un event d'un spot quitté n'est plus "mon event" ; dérivé AVANT le rendu
+  // pour que le titre de section ne coiffe jamais un carrousel vide.
+  const visibleEvents = myEvents.filter(me => me.events?.venues && unlockedVenueIds.has(me.events.venue_id));
+
   return (
     <main className="min-h-[100dvh] flex flex-col bg-slate-50">
       <header className="p-5 flex items-center justify-between sticky top-0 z-20 bg-slate-50/95 backdrop-blur-md border-b border-slate-200">
@@ -145,29 +150,29 @@ export default function Home() {
 
       <div className="flex-1 p-4 pb-32">
         {/* My Events */}
-        {myEvents.length > 0 && (
+        {visibleEvents.length > 0 && (
           <div className="mb-8">
             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-600 mb-3 ml-2 flex items-center gap-2">
-              <Calendar className="w-3 h-3" /> Mes événements
+              <Calendar className="w-3 h-3" /> Mes events
             </h2>
             <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory hide-scrollbar">
-              {myEvents.map((me) => {
-                const ev = me.events;
-                if (!ev || !ev.venues) return null;
+              {visibleEvents.map((me) => {
+                const ev = me.events!;
+                const evVenue = ev.venues!;
                 return (
                   <Link
                     key={me.event_id}
-                    href={`/l/${ev.venues.slug}?tab=events`}
+                    href={`/l/${evVenue.slug}?tab=events`}
                     className="snap-start shrink-0 w-[240px] bg-card shadow-sm border border-slate-200 p-4 rounded-2xl flex flex-col justify-between active:scale-[0.98] transition-transform"
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-2 text-blue-600 text-[10px] font-bold uppercase">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-                        {ev.venues.name}
+                        {evVenue.name}
                       </div>
                       <h3 className="font-bold text-slate-900 text-sm line-clamp-1 mb-1">{ev.title}</h3>
                       <div className="text-xs text-slate-500">
-                        {ev.current_participants}/{ev.max_participants} membres
+                        {ev.current_participants}/{ev.max_participants} participants
                       </div>
                     </div>
                     <div className="mt-3 bg-blue-50 text-blue-600 text-xs font-semibold py-1.5 px-3 rounded-lg w-fit">

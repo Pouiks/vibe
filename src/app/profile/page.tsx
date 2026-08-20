@@ -14,7 +14,7 @@ interface MySpot { venue_id: string; muted: boolean; name: string; slug: string 
 export default function ProfilePage() {
   const user = useVibeStore((state) => state.user);
   const updateUserProfile = useVibeStore((state) => state.updateUserProfile);
-  const { unsubscribeFromPush, toggleMute } = usePushNotifications();
+  const { subscribeToPush, unsubscribeFromPush, toggleMute } = usePushNotifications();
   const { signOut } = useAuth();
   const router = useRouter();
   useSwipeBack();
@@ -24,6 +24,14 @@ export default function ProfilePage() {
      age: user?.age || '',
      gender: user?.gender || ''
   });
+
+  // Le user peut arriver après le montage (hydratation de session) : sans ce
+  // resync, le formulaire resterait vide et "Sauvegarder" écraserait le profil.
+  useEffect(() => {
+    if (!user) return;
+    setFormData({ firstName: user.firstName || '', age: user.age || '', gender: user.gender || '' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const [email, setEmail] = useState<string | null>(null);
   useEffect(() => {
@@ -36,7 +44,6 @@ export default function ProfilePage() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   useEffect(() => {
     // Lecture du DOM après hydratation, une seule mise à jour voulue.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(document.documentElement.classList.contains('light') ? 'light' : 'dark');
   }, []);
   const applyTheme = (t: 'dark' | 'light') => {
@@ -71,13 +78,54 @@ export default function ProfilePage() {
 
   const handleLeaveSpot = async (s: MySpot) => {
     if (!user) return;
-    const confirmed = window.confirm(`Quitter « ${s.name} » ? Tu ne pourras plus écrire dans ce chat tant que tu n'auras pas re-scanné le QR code sur place.`);
+    const confirmed = window.confirm(`Quitter « ${s.name} » ? Tu perdras l'accès au chat (lecture et écriture) et tes participations aux events de ce spot, jusqu'à re-scanner le QR code sur place.`);
     if (!confirmed) return;
     const { error } = await supabase.from('channel_subscriptions')
       .delete()
       .eq('user_id', user.id)
       .eq('venue_id', s.venue_id);
-    if (!error) setSpots(prev => prev.filter(x => x.venue_id !== s.venue_id));
+    if (error) {
+      alert('Impossible de quitter ce spot pour le moment. Vérifie ta connexion et réessaie.');
+      return;
+    }
+    setSpots(prev => prev.filter(x => x.venue_id !== s.venue_id));
+    // Quitter le spot retire aussi des events du spot : sinon la home garde
+    // des events fantômes et les push de leurs chats continuent d'arriver.
+    const { data: evs } = await supabase.from('events').select('id').eq('venue_id', s.venue_id);
+    if (evs && evs.length > 0) {
+      await supabase.from('event_participants')
+        .delete()
+        .eq('user_id', user.id)
+        .in('event_id', evs.map(e => e.id));
+    }
+  };
+
+  // État réel des notifications sur CET appareil (l'abonnement push est par
+  // appareil) : null = vérification en cours ou non supporté.
+  const [devicePush, setDevicePush] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    // Le contrôle doit rester visible même si la sonde échoue (SW bloqué,
+    // navigation privée) : on part de "désactivé" et la sonde affine.
+    setDevicePush(false);
+    let isMounted = true;
+    navigator.serviceWorker.ready
+      .then(reg => reg.pushManager.getSubscription())
+      .then(sub => { if (isMounted) setDevicePush(!!sub); })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleDevicePushToggle = async () => {
+    if (devicePush) {
+      const ok = await unsubscribeFromPush();
+      if (ok) setDevicePush(false);
+    } else {
+      const result = await subscribeToPush();
+      if (result === 'granted') setDevicePush(true);
+      else if (result === 'denied') alert('Les notifications sont bloquées par ton navigateur. Autorise-les dans ses réglages puis réessaie.');
+      else alert("Impossible d'activer les notifications sur cet appareil.");
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -102,6 +150,9 @@ export default function ProfilePage() {
         setDeleting(false);
         return;
       }
+      // La page confidentialité promet la dissociation des mesures d'audience :
+      // on retire aussi l'identifiant anonyme local de cet appareil.
+      try { localStorage.removeItem('vibe_anon_id'); } catch { /* stockage indisponible */ }
       await signOut();
       router.replace('/');
     } catch {
@@ -225,16 +276,17 @@ export default function ProfilePage() {
            </form>
            
            <div className="mt-6 pt-6 border-t border-slate-200 flex flex-col gap-3">
-              <button 
-                onClick={async () => {
-                   const success = await unsubscribeFromPush();
-                   if (success) alert("Notifications bloquées et abonnements purgés.");
-                }} 
-                className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-500 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                title="Supprime l'envoi de notification vers cet appareil."
-              >
-                <BellOff className="w-4 h-4" /> Désactiver les notifications
-              </button>
+              {devicePush !== null && (
+                <button
+                  onClick={handleDevicePushToggle}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${devicePush ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'}`}
+                  title="L'abonnement aux notifications est propre à chaque appareil."
+                >
+                  {devicePush
+                    ? (<><BellOff className="w-4 h-4" /> Désactiver les notifications (cet appareil)</>)
+                    : (<><Bell className="w-4 h-4" /> Activer les notifications (cet appareil)</>)}
+                </button>
+              )}
               <button
                 onClick={async () => {
                    await signOut();
@@ -261,7 +313,7 @@ export default function ProfilePage() {
                    </Link>
                    <button
                      onClick={() => handleSpotMute(s)}
-                     title={s.muted ? 'Réactiver les notifications de ce spot' : 'Couper les notifications de ce spot'}
+                     title={s.muted ? 'Réactiver les notifications de ce spot' : 'Couper les notifications du chat de ce spot (tes events rejoints continuent de te notifier)'}
                      className={`p-2 rounded-full active:scale-90 transition-transform ${s.muted ? 'text-slate-400' : 'text-blue-600'}`}
                    >
                      {s.muted ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}

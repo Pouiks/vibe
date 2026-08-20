@@ -4,7 +4,10 @@ import { useVibeStore } from '@/core/store/useVibeStore';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-const PUBLIC_ROUTES = ['/', '/login', '/auth/confirm', '/l/'];
+// '/' en égalité stricte : en préfixe il rendrait TOUTES les routes publiques
+// et désactiverait le garde (bug historique : /profile s'affichait avant
+// l'hydratation de la session et pouvait écraser le profil avec des champs vides).
+const PUBLIC_PREFIXES = ['/login', '/auth', '/l/', '/confidentialite'];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { loading } = useAuth();
@@ -12,7 +15,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const isPublicRoute = PUBLIC_ROUTES.some(r => pathname?.startsWith(r));
+  const isPublicRoute = pathname === '/' || PUBLIC_PREFIXES.some(r => pathname?.startsWith(r));
 
   useEffect(() => {
     if (!loading && !user && !isPublicRoute) {

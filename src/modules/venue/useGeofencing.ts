@@ -80,7 +80,10 @@ export function useGeofencing(venueLat?: number, venueLng?: number) {
         (err) => {
           if (cancelled) return;
           console.warn('[Geofencing]', err.message);
-          if (err.code === err.PERMISSION_DENIED) setPermission('denied');
+          if (err.code === err.PERMISSION_DENIED) {
+            setPermission('denied');
+            stop();
+          }
           // Denied = we can no longer vouch for presence. Transient errors
           // (timeout, no fix) tolerate a short gap to avoid flapping, then revoke.
           if (err.code === err.PERMISSION_DENIED || isFixStale(lastFixAt, Date.now())) {
@@ -92,7 +95,6 @@ export function useGeofencing(venueLat?: number, venueLng?: number) {
         { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
       );
     };
-    checkRef.current = checkPosition;
 
     const start = () => {
       if (intervalId !== undefined) return;
@@ -105,6 +107,10 @@ export function useGeofencing(venueLat?: number, venueLng?: number) {
         intervalId = undefined;
       }
     };
+    // requestPresence démarre le polling complet : indispensable quand l'API
+    // Permissions est absente (pas d'événement onchange pour prendre le relai
+    // après l'accord de l'utilisateur).
+    checkRef.current = start;
 
     if (navigator.permissions?.query) {
       navigator.permissions.query({ name: 'geolocation' }).then((status) => {
@@ -122,7 +128,13 @@ export function useGeofencing(venueLat?: number, venueLng?: number) {
         };
         sync();
         status.onchange = sync;
-      }).catch(() => {});
+      }).catch(() => { if (!cancelled) setPermission('prompt'); });
+    } else {
+      // API Permissions absente (vieux Safari) : impossible de sonder sans
+      // déclencher la popup. On expose 'prompt' pour que l'UI propose
+      // l'activation volontaire, seule voie d'entrée dans ce cas.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPermission('prompt');
     }
 
     // Tab hidden: GPS fully off. Back to foreground: revoke if the last fix

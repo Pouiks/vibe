@@ -1,8 +1,9 @@
 ﻿"use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useVibeStore } from '@/core/store/useVibeStore';
 import { useSwipeBack } from '@/hooks/useSwipeBack';
+import { useGeofencing } from '@/modules/venue/useGeofencing';
 import { supabase } from '@/core/supabase/client';
 import { AlertCircle, ArrowLeft, Zap, CalendarDays, Sparkles } from 'lucide-react';
 import Link from 'next/link';
@@ -32,9 +33,35 @@ export default function CreateEventClient() {
   const venueSlug = searchParams.get('slug');
   useSwipeBack();
 
+  // Le statut "sur place" est re-vérifié pour CE lieu (et plus hérité d'un
+  // autre spot) : la géoloc tourne ici aussi, avec le même opt-in que le
+  // header du spot.
+  const [venueCoords, setVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (!venueId) return;
+    let isMounted = true;
+    supabase.from('venues_with_coords')
+      .select('lat, lng')
+      .eq('id', venueId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (isMounted && data) setVenueCoords({ lat: data.lat, lng: data.lng });
+      });
+    return () => { isMounted = false; };
+  }, [venueId]);
+  const { permission: geoPermission, requestPresence } = useGeofencing(venueCoords?.lat, venueCoords?.lng);
+
   // Flash = départ imminent, exige d'être sur place. Planifié = date libre,
   // ouvert à tous les membres du spot (l'habitué organise depuis chez lui).
   const [mode, setMode] = useState<'flash' | 'planned'>(writePermission ? 'flash' : 'planned');
+
+  // Le statut "sur place" peut être révoqué après le montage (re-vérification
+  // GPS pour ce lieu) : ne jamais laisser Flash sélectionné mais désactivé.
+  useEffect(() => {
+    // Synchronisation volontaire avec le store externe (writePermission).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!writePermission && mode === 'flash') setMode('planned');
+  }, [writePermission, mode]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [delay, setDelay] = useState(15);
@@ -58,6 +85,12 @@ export default function CreateEventClient() {
 
     let startTime: string;
     if (mode === 'flash') {
+      // Re-vérification au moment du submit : le statut a pu être révoqué
+      // (ou hérité d'un autre spot) entre la présélection et l'envoi.
+      if (!useVibeStore.getState().writePermission) {
+        setError("Le mode Flash nécessite d'être sur place (position vérifiée). Passe en Planifié ou active ta position.");
+        return;
+      }
       startTime = new Date(Date.now() + delay * 60000).toISOString();
     } else {
       const start = new Date(startAt);
@@ -89,8 +122,8 @@ export default function CreateEventClient() {
     if (insertError || !newEvent) {
       console.error('Event creation error:', insertError);
       setError(insertError?.code === '42501'
-        ? 'Tu dois avoir scanné le QR code de ce lieu pour créer un event.'
-        : 'Erreur lors de la création. Réessayez.');
+        ? 'Tu dois avoir scanné le QR code de ce spot pour créer un event.'
+        : 'Erreur lors de la création. Réessaie.');
       setLoading(false);
       return;
     }
@@ -106,19 +139,34 @@ export default function CreateEventClient() {
       body: JSON.stringify({ event_id: newEvent.id }),
     }).catch(err => console.error('Push notify error:', err));
 
+    // replace : un retour arrière ne doit pas retomber sur le formulaire
+    // (risque de re-soumission et d'event en double)
     if (venueSlug) {
-      router.push(`/l/${venueSlug}?tab=events`);
+      router.replace(`/l/${venueSlug}?tab=events`);
     } else {
-      router.back();
+      router.replace('/');
     }
   };
+
+  // Sans spot de rattachement (URL tronquée, retour d'historique), le
+  // formulaire serait un piège silencieux : on l'explique et on renvoie.
+  if (!venueId) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
+        <AlertCircle className="w-12 h-12 text-amber-400 mb-4" />
+        <h1 className="text-xl font-bold text-slate-900 mb-2">Aucun spot sélectionné</h1>
+        <p className="text-slate-500 mb-6 max-w-sm">Un event se crée depuis la page d&apos;un spot. Ouvre ton spot puis « Créer un event ».</p>
+        <Link href="/" className="bg-blue-600 px-4 py-2.5 rounded-xl text-white font-medium">Retour à l&apos;accueil</Link>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
-        <AlertCircle className="w-12 h-12 text-yellow-500 mb-4" />
+        <AlertCircle className="w-12 h-12 text-amber-400 mb-4" />
         <h1 className="text-xl font-bold text-slate-900 mb-2">Connexion requise</h1>
-        <p className="text-slate-500 mb-6 max-w-sm">Connecte-toi pour organiser un événement sur ce lieu.</p>
+        <p className="text-slate-500 mb-6 max-w-sm">Connecte-toi pour organiser un event sur ce spot.</p>
         <Link href={`/login?returnUrl=${encodeURIComponent(`/event/create?venue_id=${venueId}&slug=${venueSlug}`)}`} className="bg-blue-600 px-4 py-2.5 rounded-xl text-white font-medium flex items-center gap-2">
           <Sparkles className="w-4 h-4" /> Connexion
         </Link>
@@ -133,7 +181,7 @@ export default function CreateEventClient() {
       </Link>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold mb-2 text-slate-900">Créer un événement</h1>
+        <h1 className="text-3xl font-extrabold mb-2 text-slate-900">Créer un event</h1>
         <p className="text-slate-500 text-sm">Les membres du spot seront notifiés.</p>
       </div>
 
@@ -152,11 +200,21 @@ export default function CreateEventClient() {
           </button>
         </div>
         {!writePermission && (
-          <p className="text-[11px] text-slate-400 -mt-3 ml-1">⚡ Flash uniquement sur place : planifie ton event pour plus tard.</p>
+          <p className="text-[11px] text-slate-400 -mt-3 ml-1">
+            ⚡ Flash uniquement sur place : planifie ton event pour plus tard.
+            {geoPermission === 'prompt' && (
+              <>
+                {' '}Tu es au spot ?{' '}
+                <button type="button" onClick={requestPresence} className="text-blue-600 underline decoration-dotted underline-offset-2">
+                  Active ta position
+                </button>
+              </>
+            )}
+          </p>
         )}
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-600 ml-1">Titre de l&apos;événement</label>
+          <label className="text-sm font-medium text-slate-600 ml-1">Titre de l&apos;event</label>
           <input
             type="text"
             required
@@ -243,7 +301,7 @@ export default function CreateEventClient() {
           disabled={loading || !title.trim() || (mode === 'planned' && !startAt)}
           className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3.5 px-4 rounded-xl transition-all active:scale-95 disabled:opacity-50"
         >
-          {loading ? 'Création...' : mode === 'flash' ? "Lancer l'événement !" : "Planifier l'événement"}
+          {loading ? 'Création...' : mode === 'flash' ? "Lancer l'event !" : "Planifier l'event"}
         </button>
       </form>
     </div>

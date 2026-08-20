@@ -70,7 +70,7 @@ export default function LoginClient() {
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [otp, setOtp] = useState('');
   const [verifying, setVerifying] = useState(false);
-  const [error, setError] = useState(hasError ? 'Le lien a expiré. Réessayez.' : '');
+  const [error, setError] = useState(hasError ? 'Le lien a expiré. Réessaie.' : '');
   const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
@@ -83,8 +83,14 @@ export default function LoginClient() {
     setLoading(true);
     setError('');
 
+    // Le parcours nominal est la saisie du code, mais si l'email contient un
+    // lien et que l'utilisateur le clique, il doit retomber sur le spot
+    // scanné (returnUrl), pas sur la home.
     const { error: authError } = await supabase.auth.signInWithOtp({
       email: targetEmail.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm?returnUrl=${encodeURIComponent(returnUrl)}`,
+      },
     });
 
     if (authError) {
@@ -97,7 +103,7 @@ export default function LoginClient() {
     setLoading(false);
     setResendCooldown(60);
     return true;
-  }, []);
+  }, [returnUrl]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +124,7 @@ export default function LoginClient() {
 
     if (verifyError) {
       console.error('Verify error:', verifyError);
-      setError('Code invalide ou expiré. Réessayez.');
+      setError('Code invalide ou expiré. Réessaie.');
       setOtp('');
       setVerifying(false);
       return;

@@ -1,5 +1,5 @@
 ﻿"use client";
-import { use, useEffect, useState, useRef, useCallback } from 'react';
+import { use, useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGeofencing } from '@/modules/venue/useGeofencing';
 import { useRealtimeChat } from '@/modules/chat/useRealtimeChat';
@@ -55,7 +55,17 @@ interface Venue {
   lng: number;
 }
 
+// useSearchParams exige une frontière Suspense au-dessus de son consommateur
+// (doc Next) : sans elle, rendre cette route prérendable casserait le build.
 export default function VenuePage(props: { params: Promise<{ city: string; neighborhood: string; spotSlug: string }> }) {
+  return (
+    <Suspense>
+      <VenuePageInner {...props} />
+    </Suspense>
+  );
+}
+
+function VenuePageInner(props: { params: Promise<{ city: string; neighborhood: string; spotSlug: string }> }) {
   const params = use(props.params);
   const fullSlug = `${params.city}/${params.neighborhood}/${params.spotSlug}`;
   const searchParams = useSearchParams();
@@ -67,7 +77,9 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueLoading, setVenueLoading] = useState(true);
   const [hasUnlockedArea, setHasUnlockedArea] = useState(false);
-  const [joinError, setJoinError] = useState(false);
+  // 'invalid' = token refusé par le serveur ; 'network' = RPC injoignable :
+  // deux messages différents, ne jamais accuser le QR pour une panne réseau
+  const [joinError, setJoinError] = useState<null | 'invalid' | 'network'>(null);
   const [checkingAccess, setCheckingAccess] = useState(true);
 
   const user = useVibeStore((state) => state.user);
@@ -105,6 +117,13 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
   useEffect(() => {
     if (!venue || !scanToken || qrVisitTracked.current) return;
     qrVisitTracked.current = true;
+    // Dédoublonnage par session : l'aller-retour scan → login → retour ne
+    // compte qu'une visite, sinon le taux de conversion est divisé par deux.
+    try {
+      const key = `atoute_qr_visit_${venue.id}`;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch { /* stockage indisponible : on compte quand même */ }
     track('qr_visit', { venueId: venue.id, userId: user?.id });
   }, [venue?.id, scanToken]);
 
@@ -117,7 +136,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
         .then(async ({ error }) => {
           if (!error) {
             setHasUnlockedArea(true);
-            setJoinError(false);
+            setJoinError(null);
             setCheckingAccess(false);
             track('scan_success', { venueId: venue.id, userId: user.id });
             router.replace(`/l/${fullSlug}`);
@@ -135,7 +154,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
             setHasUnlockedArea(true);
             router.replace(`/l/${fullSlug}`);
           } else {
-            setJoinError(true);
+            setJoinError(/invalid_token/i.test(error.message) ? 'invalid' : 'network');
           }
           setCheckingAccess(false);
         });
@@ -152,7 +171,16 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
 
   useSwipeBack();
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'events'>('chat');
+  // ?tab=events : deep link des notifications push, du carrousel de la home
+  // et de la redirection post-création d'event
+  const [activeTab, setActiveTab] = useState<'chat' | 'events'>(
+    searchParams?.get('tab') === 'events' ? 'events' : 'chat'
+  );
+  // Une notification peut cibler une page déjà montée (Next réutilise le
+  // composant) : suivre aussi les changements de searchParams.
+  useEffect(() => {
+    if (searchParams?.get('tab') === 'events') setActiveTab('events');
+  }, [searchParams]);
   const [eventChat, setEventChat] = useState<{ id: string; title: string } | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -199,7 +227,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50">
         <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-500 text-sm">Chargement du lieu...</p>
+        <p className="text-slate-500 text-sm">Chargement du spot...</p>
       </div>
     );
   }
@@ -208,8 +236,8 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50">
         <ShieldAlert className="w-12 h-12 text-red-500 mb-4" />
-        <h1 className="text-xl font-bold">Lieu introuvable</h1>
-        <p className="text-slate-500 mb-6">Ce QR Code ne semble rattaché à aucun lieu existant.</p>
+        <h1 className="text-xl font-bold">Spot introuvable</h1>
+        <p className="text-slate-500 mb-6">Ce QR code ne semble rattaché à aucun spot existant.</p>
         <Link href="/" className="bg-blue-600 px-4 py-2 rounded-xl text-white font-medium text-sm">Retour à l&apos;accueil</Link>
       </div>
     );
@@ -292,10 +320,10 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
             )}
             {scanToken && !user ? (
               <>
-                <div className="bg-emerald-50 p-4 rounded-full text-3xl">✅</div>
-                <h2 className="font-bold text-slate-900">QR code scanné !</h2>
+                <div className="bg-blue-50 p-4 rounded-full text-3xl">👋</div>
+                <h2 className="font-bold text-slate-900">Presque là !</h2>
                 <p className="text-slate-500 text-sm leading-relaxed max-w-[280px]">
-                  Plus qu&apos;une étape : connecte-toi avec ton email pour entrer dans le groupe.
+                  Connecte-toi avec ton email pour entrer dans le spot.
                   Pas de compte ? Il se crée automatiquement.
                 </p>
               </>
@@ -316,7 +344,9 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
             )}
             {joinError && (
               <p className="text-red-600 text-[11px] bg-red-50 border border-red-200 p-2 rounded-xl">
-                ⚠️ QR Code invalide ou expiré. Rescanne le QR Code affiché sur place.
+                {joinError === 'invalid'
+                  ? "⚠️ Ce QR code n'est plus valide. Signale-le à l'équipe du lieu ou réessaie plus tard."
+                  : '⚠️ Connexion impossible pour le moment. Vérifie ton réseau et réessaie.'}
               </p>
             )}
             {!user && (
@@ -354,7 +384,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
                   <div key={m.id} className={`flex flex-col max-w-[80%] relative ${isMe ? 'self-end items-end' : 'self-start items-start'} ${m.isOptimistic ? 'opacity-60' : ''}`}>
                     <div className="flex items-center gap-1.5 mb-1 px-1">
                       <span className={`text-[11px] font-medium ${isMe ? 'text-blue-600' : 'text-slate-500'}`}>
-                        {isMe ? 'Vous' : m.username}
+                        {isMe ? 'Moi' : m.username}
                       </span>
                       {m.isOnSite && <span className="text-[9px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded">📍</span>}
                       <span className="text-[10px] text-slate-400">{formatMessageTime(m.created_at)}</span>
@@ -440,7 +470,7 @@ export default function VenuePage(props: { params: Promise<{ city: string; neigh
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onFocus={scrollToBottom}
-              placeholder={eventChat ? `Message pour « ${eventChat.title} »…` : "Envoyer une vibe..."}
+              placeholder={eventChat ? `Message pour « ${eventChat.title} »…` : 'Écris aux gens du spot…'}
               className="w-full bg-card border border-slate-200 pl-4 pr-14 py-3 rounded-xl outline-none focus:border-blue-500 text-sm text-slate-900 placeholder:text-slate-400"
             />
             <button
@@ -529,7 +559,7 @@ function EventsTab({ venueId, venueSlug, isMember, userId, onOpenChat }: { venue
   };
 
   const handleDelete = async (eventId: string) => {
-    const confirm = window.confirm("Es-tu sûr de vouloir supprimer cet événement ?");
+    const confirm = window.confirm('Supprimer cet event ?');
     if (!confirm) return;
     const removed = events.find(ev => ev.id === eventId);
     setEvents(prev => prev.filter(ev => ev.id !== eventId));
@@ -549,8 +579,8 @@ function EventsTab({ venueId, venueSlug, isMember, userId, onOpenChat }: { venue
       ) : events.length === 0 ? (
         <div className="text-center py-8">
           <Calendar className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-          <p className="text-slate-400 text-sm">Aucun événement en cours.</p>
-          <p className="text-slate-400 text-xs mt-1">Soyez le premier à en créer un !</p>
+          <p className="text-slate-400 text-sm">Aucun event en cours.</p>
+          <p className="text-slate-400 text-xs mt-1">Sois le premier à en créer un !</p>
         </div>
       ) : (
         events.map(ev => {
@@ -580,7 +610,7 @@ function EventsTab({ venueId, venueSlug, isMember, userId, onOpenChat }: { venue
                 )}
                 {isCreator ? (
                   <>
-                    <span className="text-[9px] text-blue-600 font-medium px-1.5 py-0.5 bg-blue-50 rounded">Votre event</span>
+                    <span className="text-[9px] text-blue-600 font-medium px-1.5 py-0.5 bg-blue-50 rounded">Ton event</span>
                     <button onClick={() => handleDelete(ev.id)} className="p-1 bg-red-50 text-red-500 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                   </>
                 ) : isParticipant ? (
@@ -601,11 +631,11 @@ function EventsTab({ venueId, venueSlug, isMember, userId, onOpenChat }: { venue
       {isMember ? (
         <Link href={`/event/create?venue_id=${venueId}&slug=${venueSlug}`} className="mt-1 border-2 border-dashed border-slate-300 active:border-blue-500 active:bg-blue-50 rounded-xl p-3 flex items-center justify-center gap-2 text-slate-500 active:text-blue-600">
           <Plus className="w-4 h-4" />
-          <span className="text-sm font-medium">Créer un événement</span>
+          <span className="text-sm font-medium">Créer un event</span>
         </Link>
       ) : (
         <p className="mt-1 text-center text-[11px] text-slate-400 p-3">
-          🔒 Scannez le QR code du lieu pour créer un événement.
+          🔒 Scanne le QR code du spot pour créer un event.
         </p>
       )}
     </div>

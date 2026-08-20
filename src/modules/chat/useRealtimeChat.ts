@@ -136,7 +136,7 @@ export function useRealtimeChat(venueId: string, eventId: string | null = null) 
           // chat du lieu (event_id null) et le chat d'un event.
           if ((newMessage.event_id ?? null) !== (eventId ?? null)) return;
 
-          let username = 'Nouveau Vibe';
+          let username = 'Membre ATOUTE';
           if (newMessage.user_id) {
             const { data } = await supabase.from('profiles').select('username').eq('id', newMessage.user_id).single();
             if (data) username = data.username;
